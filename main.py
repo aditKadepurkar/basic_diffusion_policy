@@ -2,6 +2,22 @@ import gymnasium as gym
 import manipulator_mujoco  # Ensure this package is correctly installed and configured
 
 
+
+
+# get expert demos
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Create the environment again with rendering mode for visualization
 env = gym.make('manipulator_mujoco/UR5eEnv-v0', render_mode='human')
 
