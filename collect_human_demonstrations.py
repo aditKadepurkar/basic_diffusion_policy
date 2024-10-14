@@ -248,6 +248,9 @@ if __name__ == "__main__":
     os.makedirs(new_dir)
 
     # collect demonstrations
-    while True:
+    i = 0
+    while i < 2:
         collect_human_trajectory(env, device, args.arm, args.config)
         gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)
+
+        i += 1
