@@ -5,25 +5,44 @@ This file contains the diffusion policy class that will be used to train the pol
 import jax.numpy as jnp
 import equinox as eqx
 import jax
+from diffusion.data_loader import DataLoader
 
 
 
 class DiffusionPolicy():
-    def __init__(self, key):
+    def __init__(self, key, data_path):
         # start with a basic nn policy
+
+        self.data_loader = DataLoader(data_path)
 
         self.key = key
 
         self.key, key1, key2, key3 = jax.random.split(self.key, 4)
 
-        self.layer1 = eqx.nn.Linear(15, 64, key=key1)
+        self.layer1 = eqx.nn.Linear(46, 64, key=key1)
         self.activation1 = eqx.nn.PReLU()
         self.layer2 = eqx.nn.Linear(64, 64, key=key2)
         self.activation2 = eqx.nn.PReLU()
         self.layer3 = eqx.nn.Linear(64, 7, key=key3)
 
-    def train(self, demonstrations):
-        pass
+    def train(self):
+        data = self.data_loader.load_data(count=1)
+        for demo in data:
+            # where demo = {observation, expert_action_sequence}
+            observations = data[demo]['states']
+            expert_action_sequence = data[demo]['actions'] # the expert action sequence
+
+            # so increments by 4
+            for i in range(len(observations)):           
+                a_t = self.predict_action(
+                    observation=observations[i],
+                    T=1000,
+                    n_actions=4
+                    )
+
+                # loss accumulation MSE loss
+                loss = jnp.sum((a_t - expert_action_sequence[i])**2)
+                print(loss)
 
     def save(self, output_dir):
         pass
