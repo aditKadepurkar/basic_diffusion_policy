@@ -13,7 +13,8 @@ class DiffusionPolicy:
         self.optim = optax.adamw(learning_rate=lr)
         self.key = key
         # Initialize model
-        model = MLP(key=jax.random.PRNGKey(0))
+        # Policy network should be initialized here
+        model = MLP(46, 7)
         # params = eqx.filter(model, eqx.is_inexact_array)
         # print(f"Initial Params: {params}")
         self.model = model
