@@ -13,43 +13,48 @@ import jax
 from PIL import Image
 import numpy as np
 from diffusion.data_loader import DataLoader
+import optax
 
-
-def train(Policy):
+def train(Policy, lr=1e-3, epochs=100):
+    
     model = Policy.model
     data_loader = Policy.data_loader
-    optim = Policy.optim
+    optim = optax.adamw(learning_rate=lr)
 
-    params = eqx.filter(model, eqx.is_inexact_array)
-    # print(f"Initial Params: {params}")
-    opt_state = optim.init(params)
+        # print(model)
+    for e in range(epochs):
+        params = eqx.filter(model, eqx.is_inexact_array)
+        # print(f"Initial Params: {params}")
+        
+        opt_state = optim.init(params)
 
-    # Load data
-    data = data_loader.load_data(count=1)
-    for demo in data:
-        observations = data[demo]['states']
-        expert_action_sequence = data[demo]['actions']
+        # Load data
+        data = data_loader.load_data(count=1)
+        for demo in data:
+            observations = data[demo]['states']
+            expert_action_sequence = data[demo]['actions']
 
-        # Loop over each observation
-        loss_period = 0
-        for i in range(len(observations)):
-            a_t, loss_value, grads = DiffusionPolicy.predict_action(
-                model=model,
-                observation=jnp.copy(observations[i]),
-                Y=jnp.array(expert_action_sequence[i]),
-                key=jax.random.PRNGKey(0),
-                T=1000,
-                n_actions=4
-            )
-            loss_period += loss_value
-            if (i + 1) % 4 == 0:
-                loss_period /= 4
-                print(f"Loss: {loss_period}")
-            # print(f"Gradients: {grads}")
-
-                params = eqx.filter(model, eqx.is_array)
-                updates, opt_state = optim.update(grads, opt_state, params)
-                model = eqx.apply_updates(model, updates)
+            # Loop over each observation
+            loss_period = 0
+            for i in range(len(observations)):
+                a_t, loss_value, grads = DiffusionPolicy.predict_action(
+                    model=model,
+                    observation=jnp.copy(observations[i]),
+                    Y=jnp.array(expert_action_sequence[i]),
+                    key=jax.random.PRNGKey(0),
+                    T=1000,
+                    n_actions=4
+                )
+                loss_period += loss_value
+                if (i + 1) % 4 == 0:
+                    loss_period /= 4
+                    # print(f"Loss: {loss_period}")
+                # print(f"Gradients: {grads}")
+                    
+                    params = eqx.filter(model, eqx.is_array)
+                    updates, opt_state = optim.update(grads, opt_state, params)
+                    model = eqx.apply_updates(model, updates)
+            print(f"Epoch: {e}, demo: {demo}, Loss: {loss_period}")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
@@ -65,7 +70,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     
     # print(a)
 
-    
+
 
     key = jax.random.PRNGKey(0)
 
@@ -77,7 +82,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     # policy.train()
 
-    train(policy)
+    train(Policy=policy, lr=0.001)
 
 
 

@@ -45,6 +45,8 @@ def collect_human_trajectory(env, device, arm, env_configuration):
     task_completion_hold_count = -1  # counter to collect 10 timesteps after reaching goal
     device.start_control()
 
+    prev_action = None
+
     # Loop until we get a reset from the input or the task completes
     while True:
         # Set active robot
@@ -55,13 +57,26 @@ def collect_human_trajectory(env, device, arm, env_configuration):
             device=device, robot=active_robot, active_arm=arm, env_configuration=env_configuration
         )
 
+        
+        
         # If action is none, then this a reset so we should break
         if action is None:
             break
 
+        if prev_action is None:
+            prev_action = action
+
+        env.render()
+
+        # remove the blankspace from the action, where possible
+        if (action == prev_action).all():
+            continue
+
+        print("Action: ", action)
+
         # Run environment step
         env.step(action)
-        env.render()
+        
 
         # Also break if we complete the task
         if task_completion_hold_count == 0:
@@ -249,7 +264,7 @@ if __name__ == "__main__":
 
     # collect demonstrations
     i = 0
-    while i < 2:
+    while i < 10:
         collect_human_trajectory(env, device, args.arm, args.config)
         gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)
 

@@ -1,7 +1,13 @@
 import h5py
+import jax.numpy as jnp
+import jax
 
-
-
+# should go to util file at some point
+def unison_shuffled_copies(a, b):
+    assert len(a) == len(b)
+    key = jax.random.PRNGKey(0)
+    p = jax.random.permutation(key, len(a))
+    return a[p], b[p]
 
 
 
@@ -30,14 +36,29 @@ class DataLoader():
                     ret_states.append(states[i])
                     ret_actions.append(actions[i:i+4])
 
-                data_key['states'] = ret_states
-                data_key['actions'] = ret_actions
+                # print(f"States: {ret_states[0]}")
+                # print(f"Actions: {ret_actions[0]}")
+
+                ret_states1, ret_actions1 = unison_shuffled_copies(jnp.array(ret_states), jnp.array(ret_actions))
+
+                # print(f"States: {ret_states1[0]}")
+                # print(f"Actions: {ret_actions1[0]}")
+
+
+                data_key['states'] = ret_states1
+                data_key['actions'] = ret_actions1
+
+
+                
                 
 
                 ret_data[key] = data_key
 
+            
 
-            return ret_data
+        f.close()
+
+        return ret_data
 
 
 # demo = { actions, states }
