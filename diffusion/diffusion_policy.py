@@ -32,6 +32,7 @@ class DiffusionPolicy:
             expert_action_sequence = data[demo]['actions']
 
             # Loop over each observation
+            loss_period = 0
             for i in range(len(observations)):
                 a_t, loss_value, grads = self.predict_action(
                     model=model,
@@ -40,27 +41,29 @@ class DiffusionPolicy:
                     T=1000,
                     n_actions=4
                 )
-
-                print(f"Loss: {loss_value}")
+                loss_period += loss_value
+                if (i + 1) % 4 == 0:
+                    loss_period /= 4
+                    print(f"Loss: {loss_period}")
                 # print(f"Gradients: {grads}")
 
-                params = eqx.filter(model, eqx.is_array)
-                updates, opt_state = self.optim.update(grads, opt_state, params)
-                model = eqx.apply_updates(model, updates)
+                    params = eqx.filter(model, eqx.is_array)
+                    updates, opt_state = self.optim.update(grads, opt_state, params)
+                    model = eqx.apply_updates(model, updates)
 
                 # print(f"Updated Params: {params}")
 
 
 
     # @jax.jit
-    def predict_action(self, model, observation, Y, T, n_actions, output_dim=7):
+    def predict_action(model, observation, Y, T, key, n_actions, output_dim=7):
         # Generate initial random actions
-        self.key, subkey = jax.random.split(self.key)
+        key, subkey = jax.random.split(key)
         a_t = jax.random.normal(subkey, (n_actions, output_dim))
 
         # Perform T-1 diffusion steps
         for k in range(T - 1):
-            a_t = self.diffusion_step(model, a_t, observation, jnp.array(k))
+            a_t = DiffusionPolicy.diffusion_step(model, a_t, observation, jnp.array(k))
 
         # Final diffusion step
         k = jnp.full((n_actions, 1), T - 1)
@@ -68,12 +71,12 @@ class DiffusionPolicy:
         nn_input = jnp.concatenate([a_t, observation, k], axis=1)
 
         # Calculate loss and gradients
-        loss_value, grads = eqx.filter_value_and_grad(self.loss)(model, nn_input, Y)
+        loss_value, grads = eqx.filter_value_and_grad(DiffusionPolicy.loss)(model, nn_input, Y)
 
         return a_t, loss_value, grads
 
     # @jax.jit
-    def diffusion_step(self, model, a_t, observation, k):
+    def diffusion_step(model, a_t, observation, k):
         n_actions, action_dim = a_t.shape
         k = jnp.full((n_actions, 1), k)
         observation = jnp.broadcast_to(observation[None, :], (n_actions, observation.shape[0]))
@@ -94,12 +97,12 @@ class DiffusionPolicy:
         return a_t
 
     # @jax.jit
-    def loss(self, model, a_t, Y):
+    def loss(model, a_t, Y):
         # Model predictions using vmap
         pred_y = jax.vmap(model)(a_t)
-        return self.MSE(Y, pred_y)
+        return DiffusionPolicy.MSE(Y, pred_y)
 
-    # @jax.jit
-    def MSE(self, y, pred_y):
+    @jax.jit
+    def MSE(y, pred_y):
         return jnp.mean((pred_y - y) ** 2)
 

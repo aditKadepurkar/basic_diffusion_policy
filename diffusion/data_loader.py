@@ -32,39 +32,15 @@ class DataLoader():
 
                 data_key['states'] = ret_states
                 data_key['actions'] = ret_actions
+                
+
                 ret_data[key] = data_key
 
 
             return ret_data
 
 
+# demo = { actions, states }
+# 
 
 
-            # print(data['demo_1'].keys())
-
-            # print(data['demo_1']['states'])
-            # print(data['demo_1']['actions'])
-            
-            
-            
-            # for i in range(self.index, self.index + count):
-                # print("Keys: %s" % f.keys())
-                
-            #     if f.get(f"demo_{i}") is None:
-            #         break
-            #     actions = f[f"demo_{i}/actions"]
-            # ret_data['observation'] = state
-
-
-
-
-
-# loader = DataLoader("data/1728922451_627212/demo.hdf5")
-
-# x = loader.load_data()
-
-# # (38,) ie: the observation is 38 dimensional
-# print(x[0]['states'].shape)
-
-# # (4, 7) ie: 4 actions
-# print(x[0]['actions'].shape)
