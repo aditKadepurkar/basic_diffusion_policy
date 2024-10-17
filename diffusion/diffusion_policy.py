@@ -38,7 +38,7 @@ class DiffusionPolicy:
         
         # Perform T diffusion steps
         for k in range(T):
-            a_t = DiffusionPolicy.diffusion_step(model, a_t, observation, jnp.array(k), gamma)
+            a_t = DiffusionPolicy.diffusion_step(a_t, observation, model, jnp.array(k), gamma)
             key, subkey = jax.random.split(key)
             a_t += sigma * jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
             a_t = alpha[T-k-1] * a_t
@@ -46,20 +46,19 @@ class DiffusionPolicy:
 
 
         # Calculate loss and gradients
-        loss_value, grads = eqx.filter_value_and_grad(DiffusionPolicy.loss)(model, cache_Y, cache_X) # (cache_Y, cache_X)
+        loss_value, grads = eqx.filter_value_and_grad(DiffusionPolicy.loss)(model, cache_Y, cache_X, observation) # (cache_Y, cache_X)
 
         return a_t, loss_value, grads
 
     # @jax.jit
-    def diffusion_step(model, a_t, observation, k, gamma):
+    def diffusion_step(a_t, observation, model, k, gamma):
         batch, n_actions, action_dim = a_t.shape
         k = jnp.full((batch, n_actions, 1), k)
         
-        
         # observation = jnp.broadcast_to(observation, (observation.shape[0], n_actions, observation.shape[2]))
-        
+
         # print(a_t.shape, observation.shape, k.shape)
-        
+
         nn_input = jnp.concatenate([a_t, observation, k], axis=2)
 
         # print(nn_input.shape)
@@ -91,20 +90,45 @@ class DiffusionPolicy:
         return cache_Y
 
     # @jax.jit
-    def loss(model, Y, X):
+    def loss(model, Y, X, observation, gamma = 0.8):
         # Model predictions using vmap
         
         # Y = jnp.array(Y)
-        # X = jnp.array(X)
+        X = jnp.array(X)
 
-        # pred_y = [0] * len(X)
+        # print(X.shape)
+
+        pred_y = [0] * len(X)
+
+        steps, batch, n_actions, action_dim = X.shape
+
+        k = jnp.arange(steps)
+        k = k.reshape((steps, 1, 1, 1))
+        k = jnp.broadcast_to(k, (steps, batch, n_actions, 1))
+
+        observation = jnp.tile(jnp.expand_dims(observation, axis=0), (steps, 1, 1, 1))
+
+        # print(X.shape, observation.shape, k.shape)
+
+        # exit(0)
+
+        nn_input = jnp.concatenate([X, observation, k], axis=3)
+
+
+        batched_model = jax.vmap(model)
+
+        pred_y = jax.vmap(batched_model)(nn_input)
 
         # for i in range(len(X)):
-        #     pred_y[i] = jnp.array(X[i])
+        #     nn_input = jnp.concatenate([X[i], observation, jnp.full((batch, n_actions, 1), i)], axis=2)
+        #     pred_y[i] = jax.vmap(model)(nn_input) - gamma * X[i]
 
-        # pred_y = jax.vmap(model)(X)
+        # pred_y = jax.vmap(DiffusionPolicy.diffusion_step)(X, observation, model, jnp.arange(len(X)), jnp.full(len(X), 0.8))
 
-        return DiffusionPolicy.MSE(Y, X)
+
+
+
+        return DiffusionPolicy.MSE(Y, pred_y)
 
     @jax.jit
     def MSE(y, X):

@@ -15,14 +15,17 @@ import numpy as np
 from diffusion.data_loader import DataLoader
 import optax
 
-def train(Policy, lr=1e-3, epochs=100):
+def train(Policy, lr=1e-4, epochs=100):
     
     model = Policy.model
     data_loader = Policy.data_loader
     optim = optax.adamw(learning_rate=lr)
 
+    
+
         # print(model)
     for e in range(epochs):
+        max_loss = 0
         params = eqx.filter(model, eqx.is_inexact_array)
         # print(f"Initial Params: {params}")
         
@@ -36,8 +39,6 @@ def train(Policy, lr=1e-3, epochs=100):
             # print(observations.shape, expert_action_sequence.shape)
 
             # Loop over each observation
-            loss_period = 0
-            accumulated_grads = None
             
             # for i in range(len(observations)):
             a_t, loss_value, grads = DiffusionPolicy.predict_action(
@@ -50,8 +51,8 @@ def train(Policy, lr=1e-3, epochs=100):
                 alpha=Policy.alpha
             )
             # print(grads)
-            loss_period += loss_value
-            
+            # loss_period += loss_value
+
             # if accumulated_grads is None:
                 # accumulated_grads = grads
             # else:
@@ -63,14 +64,16 @@ def train(Policy, lr=1e-3, epochs=100):
                     # loss_period /= 4
                     # print(f"Loss: {loss_period}")
                 # print(f"Gradients: {grads}")
-            
-            loss_period /= len(observations)
-            
+
+            # loss_value /= len(observations)
+            if loss_value > max_loss:
+                max_loss = loss_value
+
             params = eqx.filter(model, eqx.is_array)
             updates, opt_state = optim.update(grads, opt_state, params)
             model = eqx.apply_updates(model, updates)
             # print(f"Loss: {loss_period}")
-        print(f"Epoch: {e+1}, Loss: {loss_period}")
+        print(f"Epoch: {e+1}, Loss: {loss_value}, Max Loss: {max_loss}")
     print("Training complete")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
