@@ -38,23 +38,24 @@ def train(Policy, lr=1e-3, epochs=100):
             # Loop over each observation
             loss_period = 0
             accumulated_grads = None
-            for i in range(len(observations)):
-                a_t, loss_value, grads = DiffusionPolicy.predict_action(
-                    model=model,
-                    observation=jnp.copy(observations[i]),
-                    Y=jnp.array(expert_action_sequence[i]),
-                    key=jax.random.PRNGKey(0),
-                    T=1000,
-                    n_actions=4
-                )
-                # print(grads)
-                loss_period += loss_value
-                
-                if accumulated_grads is None:
-                    accumulated_grads = grads
-                else:
-                    # Accumulate gradients across steps
-                    accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
+            
+            # for i in range(len(observations)):
+            a_t, loss_value, grads = DiffusionPolicy.predict_action(
+                model=model,
+                observation=jnp.copy(observations),
+                Y=jnp.array(expert_action_sequence),
+                key=jax.random.PRNGKey(0),
+                T=50,
+                n_actions=4
+            )
+            # print(grads)
+            loss_period += loss_value
+            
+            # if accumulated_grads is None:
+                # accumulated_grads = grads
+            # else:
+                # Accumulate gradients across steps
+                # accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
 
                 
                 # if (i + 1) % 4 == 0:
@@ -65,7 +66,7 @@ def train(Policy, lr=1e-3, epochs=100):
             loss_period /= len(observations)
             
             params = eqx.filter(model, eqx.is_array)
-            updates, opt_state = optim.update(accumulated_grads, opt_state, params)
+            updates, opt_state = optim.update(grads, opt_state, params)
             model = eqx.apply_updates(model, updates)
             print(f"Loss: {loss_period}")
         print(f"Epoch: {e}, Loss: {loss_period}")

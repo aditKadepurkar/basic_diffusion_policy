@@ -11,15 +11,15 @@ class FiLM(eqx.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.key = key
-        
-        
-        
+
+
+
 
     def __call__(self, x):
         pass
-    
-    
-    
+
+
+
 class FiLMBlock(eqx.Module):
     """
     This class builds a block with a FiLM layer, and a convolutional layer

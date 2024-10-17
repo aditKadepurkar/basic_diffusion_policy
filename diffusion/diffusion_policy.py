@@ -26,8 +26,8 @@ class DiffusionPolicy:
     def predict_action(model, observation, Y, T, key, n_actions, output_dim=7):
         # Generate initial random actions
         key, subkey = jax.random.split(key)
-        a_t = jax.random.normal(subkey, (n_actions, output_dim))
-        
+        a_t = jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
+
 
         cache_X = []
         cache_Y = DiffusionPolicy.forward_diffusion(Y, T)
@@ -45,13 +45,17 @@ class DiffusionPolicy:
 
     # @jax.jit
     def diffusion_step(model, a_t, observation, k):
-        n_actions, action_dim = a_t.shape
-        k = jnp.full((n_actions, 1), k)
+        batch, n_actions, action_dim = a_t.shape
+        k = jnp.full((batch, n_actions, 1), k)
         
-        # print(observation.shape)
         
-        observation = jnp.broadcast_to(observation, (n_actions, observation.shape[1]))
-        nn_input = jnp.concatenate([a_t, observation, k], axis=1)
+        # observation = jnp.broadcast_to(observation, (observation.shape[0], n_actions, observation.shape[2]))
+        
+        # print(a_t.shape, observation.shape, k.shape)
+        
+        nn_input = jnp.concatenate([a_t, observation, k], axis=2)
+
+        # print(nn_input.shape)
         a_t1 = jax.vmap(model)(nn_input)
         return a_t1
 

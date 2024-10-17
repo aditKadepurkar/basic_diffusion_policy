@@ -19,15 +19,17 @@ class MLP(eqx.Module):
 
 
         self.layers = [
-            eqx.nn.Linear(in_features, 64, key=key1),
+            eqx.nn.Linear(in_features, 64, key=key1, use_bias=False),
             jax.nn.relu,
-            eqx.nn.Linear(64, 64, key=key2),
+            eqx.nn.Linear(64, 64, key=key2, use_bias=False),
             jax.nn.relu,
-            eqx.nn.Linear(64, out_features, key=key3),
+            eqx.nn.Linear(64, out_features, key=key3, use_bias=False),
         ]
 
 
     def __call__(self, x):
+        x = x.T
         for layer in self.layers:
+            # print(x.shape)
             x = layer(x)
-        return x
+        return x.T
