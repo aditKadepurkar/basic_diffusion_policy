@@ -29,11 +29,11 @@ def train(Policy, lr=1e-3, epochs=100):
         opt_state = optim.init(params)
 
         # Load data
-        for data in data_loader.load_data_in_batches():
-            observations = data['states']
-            expert_action_sequence = data['actions']
+        for data in data_loader:
+            observations = data['states'][0]
+            expert_action_sequence = data['actions'][0]
 
-            # print(observations[0].shape, expert_action_sequence.shape)
+            # print(observations.shape, expert_action_sequence.shape)
 
             # Loop over each observation
             loss_period = 0
@@ -62,11 +62,12 @@ def train(Policy, lr=1e-3, epochs=100):
                     # print(f"Loss: {loss_period}")
                 # print(f"Gradients: {grads}")
             
-            loss_period /= len(observations)        
+            loss_period /= len(observations)
             
             params = eqx.filter(model, eqx.is_array)
             updates, opt_state = optim.update(accumulated_grads, opt_state, params)
             model = eqx.apply_updates(model, updates)
+            print(f"Loss: {loss_period}")
         print(f"Epoch: {e}, Loss: {loss_period}")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):

@@ -10,7 +10,7 @@ from diffusion.mlp_model import MLP
 class DiffusionPolicy:
     def __init__(self, key, data_path):
         # Initialize data loader and optimizer
-        self.data_loader = DataLoader(data_path, 4)
+        self.data_loader = DataLoader(data_path, "data", 32)
 
         self.key = key
         # Initialize model

@@ -1,61 +1,95 @@
-import h5py
-import jax.numpy as jnp
-import jax
 
-# Utility function to shuffle two arrays in unison
-def unison_shuffled_copies(a, b):
-    assert len(a) == len(b)
-    key = jax.random.PRNGKey(0)
-    p = jax.random.permutation(key, len(a))
-    return a[p], b[p]
+
+import h5py
+import numpy as np
+import jax
+import jax.numpy as jnp
+import equinox as eqx
+import time
 
 class DataLoader():
-    def __init__(self, filename, batch_size=4, shuffle=True):
-        self.filename = filename
+    file_path: str
+    dataset_name: str
+    batch_size: int
+    shuffle: bool
+    buffer_size: int = 1000
+    _indices: np.ndarray = eqx.static_field()
+
+    def __init__(self, file_path, dataset_name, batch_size, shuffle=True, buffer_size=1000):
+        self.file_path = file_path
+        self.dataset_name = dataset_name
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.index = 0
-        
-        with h5py.File(self.filename, "r") as f:
-            self.data_keys = list(f['data'].keys())
+        self.buffer_size = buffer_size
+        self._dataset_size = 0
+        file = h5py.File(file_path, 'r')
 
-    def load_data_in_batches(self):
-        with h5py.File(self.filename, "r") as f:
-            data = f['data']
+        self.labels = file[dataset_name]['demo_1']['actions']
 
-            for key in self.data_keys:
-                # Extract states and actions
-                actions = data[key]['actions']
-                states = data[key]['states']
+        with h5py.File(file_path, 'r') as f:
+            # print(f[dataset_name].keys())
+            for demo in f[dataset_name].keys():
+                self._dataset_size += f[dataset_name][demo]['states'].shape[0]
 
-                num_samples = len(states) - 4
-                indices = jnp.arange(0, num_samples, 4)
+            self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
 
-                if self.shuffle:
-                    key = jax.random.PRNGKey(0)
-                    indices = jax.random.permutation(key, indices)
+        self._indices = np.arange(self._dataset_size - 4)
+        if self.shuffle:
+            self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
+            # np.random.shuffle(self._indices)
 
-                for i in range(0, len(indices), self.batch_size):
-                    batch_indices = indices[i:i + self.batch_size]
+    def _load_data(self, indices):
+        """Loads the required data from HDF5 file based on indices."""
 
-                    batch_states = [states[idx:idx + 4] for idx in batch_indices]
-                    batch_actions = [actions[idx:idx + 4] for idx in batch_indices]
+        indices = sorted(indices)
+        with h5py.File(self.file_path, 'r') as f:
+            data = f[self.dataset_name]['demo_1']
+            states = []
+            actions = []
+            states.append([data['states'][i:i+4] for i in indices])
+            actions.append([data['actions'][i:i+4] for i in indices])
+            data = {"states": jnp.array(states), "actions": jnp.array(actions)}
+        return data
 
-                    batch_states = jnp.array(batch_states)
-                    batch_actions = jnp.array(batch_actions)
+    def __iter__(self):
+        self._start = 0
+        return self
 
-                    if self.shuffle:
-                        batch_states, batch_actions = unison_shuffled_copies(batch_states, batch_actions)
+    def __next__(self):
+        if self._start >= self._dataset_size:
+            raise StopIteration
 
-                    yield {'states': batch_states, 'actions': batch_actions}
+        end = min(self._start + self.batch_size, self._dataset_size)
+        batch_indices = self._indices[self._start:end]
+        self._start = end
 
-# Example usage:
-# loader = DataLoader('your_file.hdf5', batch_size=4)
-# for batch in loader.load_data_in_batches():
-#     # process batch['states'] and batch['actions']
+        # Load and return batch
+        return self._load_data(batch_indices)
+
+    def shuffle_data(self):
+        """Shuffle the indices if needed."""
+        if self.shuffle:
+            self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
+
+# Usage
+# file_path = "/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5"
+# dataset_name = "data"
+# batch_size = 32
+
+# data_loader = DataLoader(file_path, dataset_name, batch_size, shuffle=True)
+
+# # Iterate over batches
+# for batch in data_loader:
+    
+    # Your training loop or processing code here
+    # time.sleep(60)
+    # print(batch.shape)
 
 
-# loader = DataLoader('/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5', batch_size=4)
+# data_loader = DataLoader(file_path, dataset_name, batch_size, shuffle=True)
 
-# for batch in loader.load_data_in_batches():
-#     print(batch['states'].shape, batch['actions'].shape)
+# # Iterate over batches
+# for batch in data_loader:
+    # Your training loop or processing code here
+    # time.sleep(60)
+    # print(batch.shape)
