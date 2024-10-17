@@ -2,66 +2,60 @@ import h5py
 import jax.numpy as jnp
 import jax
 
-# should go to util file at some point
+# Utility function to shuffle two arrays in unison
 def unison_shuffled_copies(a, b):
     assert len(a) == len(b)
     key = jax.random.PRNGKey(0)
     p = jax.random.permutation(key, len(a))
     return a[p], b[p]
 
-
-
-
 class DataLoader():
-    def __init__(self, filename):
+    def __init__(self, filename, batch_size=4, shuffle=True):
         self.filename = filename
+        self.batch_size = batch_size
+        self.shuffle = shuffle
         self.index = 0
+        
+        with h5py.File(self.filename, "r") as f:
+            self.data_keys = list(f['data'].keys())
 
-    def load_data(self, count=4):
-        ret_data = {}
+    def load_data_in_batches(self):
         with h5py.File(self.filename, "r") as f:
             data = f['data']
 
-            for key in data.keys():
-                # extract the states and actions
+            for key in self.data_keys:
+                # Extract states and actions
                 actions = data[key]['actions']
                 states = data[key]['states']
 
-                data_key = {}
+                num_samples = len(states) - 4
+                indices = jnp.arange(0, num_samples, 4)
 
-                ret_states = []
-                ret_actions = []
+                if self.shuffle:
+                    key = jax.random.PRNGKey(0)
+                    indices = jax.random.permutation(key, indices)
 
-                for i in range(0, len(states)-4, 4):
-                    ret_states.append(states[i])
-                    ret_actions.append(actions[i:i+4])
+                for i in range(0, len(indices), self.batch_size):
+                    batch_indices = indices[i:i + self.batch_size]
 
-                # print(f"States: {ret_states[0]}")
-                # print(f"Actions: {ret_actions[0]}")
+                    batch_states = [states[idx:idx + 4] for idx in batch_indices]
+                    batch_actions = [actions[idx:idx + 4] for idx in batch_indices]
 
-                ret_states1, ret_actions1 = unison_shuffled_copies(jnp.array(ret_states), jnp.array(ret_actions))
+                    batch_states = jnp.array(batch_states)
+                    batch_actions = jnp.array(batch_actions)
 
-                # print(f"States: {ret_states1[0]}")
-                # print(f"Actions: {ret_actions1[0]}")
+                    if self.shuffle:
+                        batch_states, batch_actions = unison_shuffled_copies(batch_states, batch_actions)
 
+                    yield {'states': batch_states, 'actions': batch_actions}
 
-                data_key['states'] = ret_states1
-                data_key['actions'] = ret_actions1
-
-
-                
-                
-
-                ret_data[key] = data_key
-
-            
-
-        f.close()
-
-        return ret_data
+# Example usage:
+# loader = DataLoader('your_file.hdf5', batch_size=4)
+# for batch in loader.load_data_in_batches():
+#     # process batch['states'] and batch['actions']
 
 
-# demo = { actions, states }
-# 
+# loader = DataLoader('/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5', batch_size=4)
 
-
+# for batch in loader.load_data_in_batches():
+#     print(batch['states'].shape, batch['actions'].shape)

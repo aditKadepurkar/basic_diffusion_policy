@@ -29,13 +29,15 @@ def train(Policy, lr=1e-3, epochs=100):
         opt_state = optim.init(params)
 
         # Load data
-        data = data_loader.load_data(count=1)
-        for demo in data:
-            observations = data[demo]['states']
-            expert_action_sequence = data[demo]['actions']
+        for data in data_loader.load_data_in_batches():
+            observations = data['states']
+            expert_action_sequence = data['actions']
+
+            # print(observations[0].shape, expert_action_sequence.shape)
 
             # Loop over each observation
             loss_period = 0
+            accumulated_grads = None
             for i in range(len(observations)):
                 a_t, loss_value, grads = DiffusionPolicy.predict_action(
                     model=model,
@@ -45,16 +47,27 @@ def train(Policy, lr=1e-3, epochs=100):
                     T=1000,
                     n_actions=4
                 )
+                # print(grads)
                 loss_period += loss_value
-                if (i + 1) % 4 == 0:
-                    loss_period /= 4
+                
+                if accumulated_grads is None:
+                    accumulated_grads = grads
+                else:
+                    # Accumulate gradients across steps
+                    accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
+
+                
+                # if (i + 1) % 4 == 0:
+                    # loss_period /= 4
                     # print(f"Loss: {loss_period}")
                 # print(f"Gradients: {grads}")
-                    
-                    params = eqx.filter(model, eqx.is_array)
-                    updates, opt_state = optim.update(grads, opt_state, params)
-                    model = eqx.apply_updates(model, updates)
-            print(f"Epoch: {e}, demo: {demo}, Loss: {loss_period}")
+            
+            loss_period /= len(observations)        
+            
+            params = eqx.filter(model, eqx.is_array)
+            updates, opt_state = optim.update(accumulated_grads, opt_state, params)
+            model = eqx.apply_updates(model, updates)
+        print(f"Epoch: {e}, Loss: {loss_period}")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 

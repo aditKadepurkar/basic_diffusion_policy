@@ -10,7 +10,7 @@ from diffusion.mlp_model import MLP
 class DiffusionPolicy:
     def __init__(self, key, data_path):
         # Initialize data loader and optimizer
-        self.data_loader = DataLoader(data_path)
+        self.data_loader = DataLoader(data_path, 4)
 
         self.key = key
         # Initialize model
@@ -27,6 +27,7 @@ class DiffusionPolicy:
         # Generate initial random actions
         key, subkey = jax.random.split(key)
         a_t = jax.random.normal(subkey, (n_actions, output_dim))
+        
 
         cache_X = []
         cache_Y = DiffusionPolicy.forward_diffusion(Y, T)
@@ -46,7 +47,10 @@ class DiffusionPolicy:
     def diffusion_step(model, a_t, observation, k):
         n_actions, action_dim = a_t.shape
         k = jnp.full((n_actions, 1), k)
-        observation = jnp.broadcast_to(observation[None, :], (n_actions, observation.shape[0]))
+        
+        # print(observation.shape)
+        
+        observation = jnp.broadcast_to(observation, (n_actions, observation.shape[1]))
         nn_input = jnp.concatenate([a_t, observation, k], axis=1)
         a_t1 = jax.vmap(model)(nn_input)
         return a_t1
