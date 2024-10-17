@@ -8,9 +8,13 @@ from diffusion.mlp_model import MLP
 
 
 class DiffusionPolicy:
-    def __init__(self, key, data_path):
+    def __init__(self, key, data_path, T=50, gamma=0.99, sigma=0.2):
         # Initialize data loader and optimizer
         self.data_loader = DataLoader(data_path, "data", 32)
+
+        self.alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
+        self.sigma = sigma
+        self.gamma = gamma
 
         self.key = key
         # Initialize model
@@ -23,10 +27,10 @@ class DiffusionPolicy:
 
 
     # @jax.jit
-    def predict_action(model, observation, Y, T, key, n_actions, output_dim=7):
+    def predict_action(model, observation, Y, T, key, n_actions, output_dim=7, gamma=0.8, alpha=[0.99], sigma=5):
         # Generate initial random actions
         key, subkey = jax.random.split(key)
-        a_t = jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
+        a_t = sigma * jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
 
 
         cache_X = []
@@ -34,7 +38,10 @@ class DiffusionPolicy:
         
         # Perform T diffusion steps
         for k in range(T):
-            a_t = DiffusionPolicy.diffusion_step(model, a_t, observation, jnp.array(k))
+            a_t = DiffusionPolicy.diffusion_step(model, a_t, observation, jnp.array(k), gamma)
+            key, subkey = jax.random.split(key)
+            a_t += sigma * jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
+            a_t = alpha[T-k-1] * a_t
             cache_X.append(a_t)
 
 
@@ -44,7 +51,7 @@ class DiffusionPolicy:
         return a_t, loss_value, grads
 
     # @jax.jit
-    def diffusion_step(model, a_t, observation, k):
+    def diffusion_step(model, a_t, observation, k, gamma):
         batch, n_actions, action_dim = a_t.shape
         k = jnp.full((batch, n_actions, 1), k)
         
@@ -57,10 +64,15 @@ class DiffusionPolicy:
 
         # print(nn_input.shape)
         a_t1 = jax.vmap(model)(nn_input)
+
+
+        a_t1 = a_t - gamma * a_t1
+
+
         return a_t1
 
     # @jax.jit
-    def forward_diffusion(a_0, T=1000):
+    def forward_diffusion(a_0, T=50):
         a_t = jnp.copy(a_0)
         alpha_schedule = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
 

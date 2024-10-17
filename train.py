@@ -46,7 +46,8 @@ def train(Policy, lr=1e-3, epochs=100):
                 Y=jnp.array(expert_action_sequence),
                 key=jax.random.PRNGKey(0),
                 T=50,
-                n_actions=4
+                n_actions=4,
+                alpha=Policy.alpha
             )
             # print(grads)
             loss_period += loss_value
@@ -68,8 +69,9 @@ def train(Policy, lr=1e-3, epochs=100):
             params = eqx.filter(model, eqx.is_array)
             updates, opt_state = optim.update(grads, opt_state, params)
             model = eqx.apply_updates(model, updates)
-            print(f"Loss: {loss_period}")
-        print(f"Epoch: {e}, Loss: {loss_period}")
+            # print(f"Loss: {loss_period}")
+        print(f"Epoch: {e+1}, Loss: {loss_period}")
+    print("Training complete")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
