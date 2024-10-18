@@ -94,7 +94,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     key = jax.random.PRNGKey(0)
 
-    data_path = "data/1728922451_627212/demo.hdf5"
+    data_path = "demonstrations/1729277108_0358148/demo.hdf5"
 
     policy = DiffusionPolicy(key=key, data_path=data_path)
 

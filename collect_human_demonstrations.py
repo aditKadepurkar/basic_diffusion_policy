@@ -22,7 +22,7 @@ from robosuite.utils.input_utils import input2action
 from robosuite.wrappers import DataCollectionWrapper, VisualizationWrapper
 
 
-def collect_human_trajectory(env, device, arm, env_configuration):
+def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demonstrations", demo_num=0):
     """
     Use the device (keyboard or SpaceNav 3D mouse) to collect a demonstration.
     The rollout trajectory is saved to files in npz format.
@@ -39,6 +39,11 @@ def collect_human_trajectory(env, device, arm, env_configuration):
 
     # ID = 2 always corresponds to agentview
     env.render()
+
+
+    states = []
+    actions = []
+    observations = []
 
     is_first = True
 
@@ -68,11 +73,26 @@ def collect_human_trajectory(env, device, arm, env_configuration):
 
         env.render()
 
+        camera_obs = env.sim.render(
+            width=128, height=128, camera_name="robot0_eye_in_hand"
+        )
+
         # remove the blankspace from the action, where possible
         if (action == prev_action).all():
             continue
 
-        print("Action: ", action)
+        # print("Action: ", action)
+
+        state = env.sim.get_state().flatten()
+
+        # Get camera observation (e.g., wrist camera)
+        camera_obs = env.sim.render(
+            width=128, height=128, camera_name="robot0_eye_in_hand"
+        )
+
+        states.append(state)
+        actions.append(action)
+        observations.append(camera_obs)
 
         # Run environment step
         env.step(action)
@@ -90,6 +110,13 @@ def collect_human_trajectory(env, device, arm, env_configuration):
                 task_completion_hold_count = 10  # reset count on first success timestep
         else:
             task_completion_hold_count = -1  # null the counter if there's no success
+
+    # np.savez_compressed(
+    #     os.path.join(save_dir, f"demo_{demo_num}.npz"),
+    #     states=np.array(states),
+    #     actions=np.array(actions),
+    #     observations=np.array(observations)
+    # )
 
     # cleanup for end of data collection episodes
     env.close()
@@ -141,6 +168,9 @@ def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
 
         for state_file in sorted(glob(state_paths)):
             dic = np.load(state_file, allow_pickle=True)
+
+            print(dic.keys())
+
             env_name = str(dic["env"])
 
             states.extend(dic["states"])
@@ -192,7 +222,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--directory",
         type=str,
-        default=os.path.join(suite.models.assets_root, "demonstrations"),
+        default=os.path.join(os.getcwd(), "demonstrations"),
     )
     parser.add_argument("--environment", type=str, default="Lift")
     parser.add_argument("--robots", nargs="+", type=str, default="Panda", help="Which robot(s) to use in the env")
@@ -227,10 +257,14 @@ if __name__ == "__main__":
     env = suite.make(
         **config,
         has_renderer=True,
-        has_offscreen_renderer=False,
+        has_offscreen_renderer=True,
         render_camera=args.camera,
         ignore_done=True,
-        use_camera_obs=False,
+        use_camera_obs=True,
+        camera_names=["agentview", "robot0_eye_in_hand"],
+        camera_heights=128,
+        camera_widths=128,
+        camera_depths=False,
         reward_shaping=True,
         control_freq=20,
     )
@@ -264,8 +298,10 @@ if __name__ == "__main__":
 
     # collect demonstrations
     i = 0
+    print(new_dir)
     while i < 10:
-        collect_human_trajectory(env, device, args.arm, args.config)
+        collect_human_trajectory(env, device, args.arm, args.config, "demonstrations", i)
+        i+=1
         gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)
 
-        i += 1
+        # i += 1

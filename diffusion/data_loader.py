@@ -29,11 +29,11 @@ class DataLoader():
         with h5py.File(file_path, 'r') as f:
             # print(f[dataset_name].keys())
             for demo in f[dataset_name].keys():
-                self._dataset_size += f[dataset_name][demo]['states'].shape[0]
+                self._dataset_size += f[dataset_name][demo]['states'].shape[0] -8
 
             self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
 
-        self._indices = np.arange(self._dataset_size - 4)
+        self._indices = np.arange(self._dataset_size - 8)
         if self.shuffle:
             self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
             # np.random.shuffle(self._indices)

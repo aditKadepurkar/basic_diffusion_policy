@@ -19,7 +19,7 @@ class DiffusionPolicy:
         self.key = key
         # Initialize model
         # Policy network should be initialized here
-        model = MLP(46, 7)
+        model = MLP(40, 7)
         # params = eqx.filter(model, eqx.is_inexact_array)
         # print(f"Initial Params: {params}")
         self.model = model
