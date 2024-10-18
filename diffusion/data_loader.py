@@ -1,4 +1,6 @@
-
+"""
+Dataloader for loading data from HDF5 file.
+"""
 
 import h5py
 import numpy as np
@@ -26,11 +28,14 @@ class DataLoader():
 
         self.labels = file[dataset_name]['demo_1']['actions']
 
+        self.sizes = []
+
         with h5py.File(file_path, 'r') as f:
             # print(f[dataset_name].keys())
             for demo in f[dataset_name].keys():
+                self.sizes.append(f[dataset_name][demo]['states'].shape[0] - 8 + self.sizes[-1] if len(self.sizes) > 0 else f[dataset_name][demo]['states'].shape[0] - 8)
                 self._dataset_size += f[dataset_name][demo]['states'].shape[0] -8
-
+            print(self.sizes)
             self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
 
         self._indices = np.arange(self._dataset_size - 8)
@@ -47,7 +52,7 @@ class DataLoader():
             states = []
             actions = []
             states.append([data['states'][i:i+4] for i in indices])
-            actions.append([data['actions'][i:i+4] for i in indices])
+            actions.append([data['actions'][i+4:i+8] for i in indices])
             data = {"states": jnp.array(states), "actions": jnp.array(actions)}
         return data
 

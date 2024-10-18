@@ -78,8 +78,8 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         )
 
         # remove the blankspace from the action, where possible
-        if (action == prev_action).all():
-            continue
+        # if (action == prev_action).all():
+            # continue
 
         # print("Action: ", action)
 

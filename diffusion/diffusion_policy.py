@@ -4,8 +4,18 @@ import jax
 from diffusion.data_loader import DataLoader
 import optax
 from diffusion.mlp_model import MLP
+import math
 
+def gamma_to_alpha_sigma(gamma, scale = 1):
+    return jnp.sqrt(gamma) * scale, jnp.sqrt(1 - gamma)
 
+def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
+    power = 2 * tau
+    v_start = math.cos(start * math.pi / 2) ** power
+    v_end = math.cos(end * math.pi / 2) ** power
+    output = math.cos((t * (end - start) + start) * math.pi / 2) ** power
+    output = (v_end - output) / (v_end - v_start)
+    return output.clamp(min = clip_min)
 
 class DiffusionPolicy:
     def __init__(self, key, data_path, T=50, gamma=0.99, sigma=0.2):
@@ -14,7 +24,7 @@ class DiffusionPolicy:
 
         self.alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
         self.sigma = sigma
-        self.gamma = gamma
+        self.gamma = cosine_schedule
 
         self.key = key
         # Initialize model
@@ -24,7 +34,12 @@ class DiffusionPolicy:
         # print(f"Initial Params: {params}")
         self.model = model
 
-
+    def forward(self, x):
+        # Forward pass through the model
+        # Should simplify the code.
+        
+        # x will be the observations and states of the expert
+        pass
 
     # @jax.jit
     def predict_action(model, observation, Y, T, key, n_actions, output_dim=7, gamma=0.8, alpha=[0.99], sigma=5):
