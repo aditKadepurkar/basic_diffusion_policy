@@ -85,6 +85,8 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
 
         state = env.sim.get_state().flatten()
 
+        print(state.shape)
+
         # Get camera observation (e.g., wrist camera)
         camera_obs = env.sim.render(
             width=128, height=128, camera_name="robot0_eye_in_hand"

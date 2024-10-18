@@ -14,6 +14,7 @@ from PIL import Image
 import numpy as np
 from diffusion.data_loader import DataLoader
 import optax
+from eval import eval_policy
 
 def train(Policy, lr=1e-4, epochs=100):
     
@@ -102,7 +103,12 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     # policy.train()
 
-    train(Policy=policy, lr=0.001)
+    train(Policy=policy, lr=0.001, epochs=100)
+
+
+    print("Eval")
+
+    eval_policy(Policy=policy)
 
 
 

@@ -35,7 +35,7 @@ class DataLoader():
             for demo in f[dataset_name].keys():
                 self.sizes.append(f[dataset_name][demo]['states'].shape[0] - 8 + self.sizes[-1] if len(self.sizes) > 0 else f[dataset_name][demo]['states'].shape[0] - 8)
                 self._dataset_size += f[dataset_name][demo]['states'].shape[0] -8
-            print(self.sizes)
+            # print(self.sizes)
             self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
 
         self._indices = np.arange(self._dataset_size - 8)

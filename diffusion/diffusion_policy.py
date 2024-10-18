@@ -15,7 +15,7 @@ def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
     v_end = math.cos(end * math.pi / 2) ** power
     output = math.cos((t * (end - start) + start) * math.pi / 2) ** power
     output = (v_end - output) / (v_end - v_start)
-    return output.clamp(min = clip_min)
+    return jnp.float16(output).clip(min = clip_min)
 
 class DiffusionPolicy:
     def __init__(self, key, data_path, T=50, gamma=0.99, sigma=0.2):
@@ -34,17 +34,44 @@ class DiffusionPolicy:
         # print(f"Initial Params: {params}")
         self.model = model
 
-    def forward(self, x):
-        # Forward pass through the model
+    def inference(x, model, key, T=50, n_actions=4, output_dim=7):
+        # Forward pass through the 
         # Should simplify the code.
         
         # x will be the observations and states of the expert
-        pass
+        
+        gamma = cosine_schedule(1)
+
+        _, sigma = gamma_to_alpha_sigma(gamma)
+
+        alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
+
+        key, subkey = jax.random.split(key)
+        a_t = sigma * jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
+
+        for k in range(T):
+            gamma = cosine_schedule(k)
+            _, sigma = gamma_to_alpha_sigma(gamma)
+
+            a_t = DiffusionPolicy.diffusion_step(a_t, x, model, jnp.array(k), gamma)
+            key, subkey = jax.random.split(key)
+            a_t += sigma * jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
+            a_t = alpha[T-k-1] * a_t
+
+        return a_t
+
 
     # @jax.jit
     def predict_action(model, observation, Y, T, key, n_actions, output_dim=7, gamma=0.8, alpha=[0.99], sigma=5):
         # Generate initial random actions
         key, subkey = jax.random.split(key)
+
+        gamma = cosine_schedule(1)
+
+        alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
+
+        _, sigma = gamma_to_alpha_sigma(gamma)
+
         a_t = sigma * jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
 
 
@@ -53,6 +80,9 @@ class DiffusionPolicy:
         
         # Perform T diffusion steps
         for k in range(T):
+            gamma = cosine_schedule(k)
+            _, sigma = gamma_to_alpha_sigma(gamma)
+
             a_t = DiffusionPolicy.diffusion_step(a_t, observation, model, jnp.array(k), gamma)
             key, subkey = jax.random.split(key)
             a_t += sigma * jax.random.normal(subkey, (observation.shape[0], n_actions, output_dim))
