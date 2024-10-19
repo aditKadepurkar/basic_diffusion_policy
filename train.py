@@ -17,12 +17,12 @@ import optax
 from eval import eval_policy
 
 def train(Policy, lr=1e-4, epochs=100):
-    
+
     model = Policy.model
     data_loader = Policy.data_loader
     optim = optax.adamw(learning_rate=lr)
 
-    
+
 
         # print(model)
     for e in range(epochs):
@@ -34,8 +34,8 @@ def train(Policy, lr=1e-4, epochs=100):
 
         # Load data
         for data in data_loader:
-            observations = data['states'][0]
-            expert_action_sequence = data['actions'][0]
+            observations = data['states']
+            expert_action_sequence = data['actions']
 
             # print(observations.shape, expert_action_sequence.shape)
 

@@ -29,16 +29,22 @@ class DataLoader():
         self.labels = file[dataset_name]['demo_1']['actions']
 
         self.sizes = []
+        self.sets = []
 
         with h5py.File(file_path, 'r') as f:
             # print(f[dataset_name].keys())
             for demo in f[dataset_name].keys():
                 self.sizes.append(f[dataset_name][demo]['states'].shape[0] - 8 + self.sizes[-1] if len(self.sizes) > 0 else f[dataset_name][demo]['states'].shape[0] - 8)
                 self._dataset_size += f[dataset_name][demo]['states'].shape[0] -8
-            # print(self.sizes)
-            self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
+                self.sets.append(demo)
+        
+        self.sizes = jnp.array(self.sizes)
+        # self.sets = jnp.array(self.sets)
 
-        self._indices = np.arange(self._dataset_size - 8)
+            # print(self.sizes)
+            # self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
+
+        self._indices = np.arange(self._dataset_size)
         if self.shuffle:
             self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
             # np.random.shuffle(self._indices)
@@ -47,13 +53,24 @@ class DataLoader():
         """Loads the required data from HDF5 file based on indices."""
 
         indices = sorted(indices)
+        states = []
+        actions = []
         with h5py.File(self.file_path, 'r') as f:
-            data = f[self.dataset_name]['demo_1']
-            states = []
-            actions = []
-            states.append([data['states'][i:i+4] for i in indices])
-            actions.append([data['actions'][i+4:i+8] for i in indices])
+            for i in indices:
+                idx = jnp.searchsorted(self.sizes, i, side='right')
+                if idx > 0:
+                    i -= self.sizes[idx - 1]
+                demo = self.sets[idx]
+
+                data = f[self.dataset_name][demo]
+            
+                states.append(data['states'][i:i+4])
+                actions.append(data['actions'][i+4:i+8])
+
+            # does jnp.array twice so the shape is correct
+            # print(states.shape, actions.shape)
             data = {"states": jnp.array(states), "actions": jnp.array(actions)}
+            # print(data['states'].shape, data['actions'].shape)
         return data
 
     def __iter__(self):
