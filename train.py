@@ -7,7 +7,7 @@ import argparse
 import os
 import json
 import equinox as eqx
-from diffusion.diffusion_policy import DiffusionPolicy
+from diffusion.diffusion_policy import DiffusionPolicy, NoisePredictionNetwork, NoiseScheduler
 import jax.numpy as jnp
 import jax
 from PIL import Image
@@ -15,67 +15,130 @@ import numpy as np
 from diffusion.data_loader import DataLoader
 import optax
 from eval import eval_policy
+from diffusion.mlp_model import MLP
+from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-def train(Policy, lr=1e-4, epochs=100):
 
-    model = Policy.model
-    data_loader = Policy.data_loader
+
+
+
+
+def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
+
+    lr = optax.cosine_decay_schedule(1e-4, 100)
+    # alpha = 
+    # gamma = 
+
     optim = optax.adamw(learning_rate=lr)
 
 
-
-        # print(model)
     for e in range(epochs):
-        max_loss = 0
-        params = eqx.filter(model, eqx.is_inexact_array)
-        # print(f"Initial Params: {params}")
-        
+        params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
         opt_state = optim.init(params)
 
-        # Load data
-        for data in data_loader:
-            observations = data['states']
-            expert_action_sequence = data['actions']
-
-            # print(observations.shape, expert_action_sequence.shape)
-
-            # Loop over each observation
+        for data in dataloader:
             
-            # for i in range(len(observations)):
-            a_t, loss_value, grads = DiffusionPolicy.predict_action(
-                model=model,
-                observation=jnp.copy(observations),
-                Y=jnp.array(expert_action_sequence),
-                key=jax.random.PRNGKey(0),
-                T=50,
-                n_actions=4,
-                alpha=Policy.alpha
-            )
-            # print(grads)
-            # loss_period += loss_value
+            obs = data['states']
+            actions = data['actions']
 
-            # if accumulated_grads is None:
-                # accumulated_grads = grads
-            # else:
-                # Accumulate gradients across steps
-                # accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
+            # film layer stuff
+
+
+
+
+
+            # random noise
+            noise = jax.random.normal(jax.random.key(0), (actions.shape))
+
+            timesteps = jax.random.randint(jax.random.key(0), (actions.shape[0],), 0, 50)
+
+
+            # forward diffusion
+            noise_actions = noise_scheduler.apply_noise(actions, noise, timesteps)
+
+            def loss(actions, T, observations):
+                noise_pred = noise_pred_nw(noise_actions, T, observations)
+                return jnp.mean(jnp.square(noise - noise_pred))
+            
+            loss_value, grads = eqx.filter_value_and_grad(loss)(noise_actions, timesteps, obs)
+
+            params = eqx.filter(noise_pred_nw, eqx.is_array)
+            updates, opt_state = optim.update(grads, opt_state, params)
+            noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
+
+            print(loss_value)
+
+
+
+
+
+
+
+
+
+
+
+
+# def train(Policy, lr=1e-4, epochs=100):
+
+#     model = Policy.model
+#     data_loader = Policy.data_loader
+#     optim = optax.adamw(learning_rate=lr)
+
+
+
+#         # print(model)
+#     for e in range(epochs):
+#         max_loss = 0
+#         params = eqx.filter(model, eqx.is_inexact_array)
+#         # print(f"Initial Params: {params}")
+        
+#         opt_state = optim.init(params)
+
+#         # Load data
+#         for data in data_loader:
+#             observations = data['states']
+#             expert_action_sequence = data['actions']
+
+#             # print(observations.shape, expert_action_sequence.shape)
+
+#             # Loop over each observation
+            
+#             # for i in range(len(observations)):
+#             a_t, loss_value, grads = DiffusionPolicy.predict_action(
+#                 model=model,
+#                 observation=jnp.copy(observations),
+#                 Y=jnp.array(expert_action_sequence),
+#                 key=jax.random.PRNGKey(0),
+#                 T=50,
+#                 n_actions=4,
+#                 alpha=Policy.alpha
+#             )
+#             # print(grads)
+#             # loss_period += loss_value
+
+#             # if accumulated_grads is None:
+#                 # accumulated_grads = grads
+#             # else:
+#                 # Accumulate gradients across steps
+#                 # accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
 
                 
-                # if (i + 1) % 4 == 0:
-                    # loss_period /= 4
-                    # print(f"Loss: {loss_period}")
-                # print(f"Gradients: {grads}")
+#                 # if (i + 1) % 4 == 0:
+#                     # loss_period /= 4
+#                     # print(f"Loss: {loss_period}")
+#                 # print(f"Gradients: {grads}")
 
-            # loss_value /= len(observations)
-            if loss_value > max_loss:
-                max_loss = loss_value
+#             # loss_value /= len(observations)
+#             if loss_value > max_loss:
+#                 max_loss = loss_value
 
-            params = eqx.filter(model, eqx.is_array)
-            updates, opt_state = optim.update(grads, opt_state, params)
-            model = eqx.apply_updates(model, updates)
-            # print(f"Loss: {loss_period}")
-        print(f"Epoch: {e+1}, Loss: {loss_value}, Max Loss: {max_loss}")
-    print("Training complete")
+#             params = eqx.filter(model, eqx.is_array)
+#             updates, opt_state = optim.update(grads, opt_state, params)
+#             model = eqx.apply_updates(model, updates)
+#             # print(f"Loss: {loss_period}")
+#         print(f"Epoch: {e+1}, Loss: {loss_value}, Max Loss: {max_loss}")
+#     print("Training complete")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
@@ -103,10 +166,29 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     # policy.train()
 
-    lr_schedule = optax.schedules.exponential_decay(1e-3, 100, 0.9)
+    # lr_schedule = optax.schedules.exponential_decay(1e-3, 100, 0.9)
 
-    train(Policy=policy, lr=lr_schedule, epochs=100)
+    # train(Policy=policy, lr=lr_schedule, epochs=100)
 
+    # noise_pred_nw = NoisePredictionNetwork(7, 40)
+    noise_pred_nw = MLP(7, 40)
+
+    noise_scheduler = DDPMScheduler(
+        num_train_timesteps=100,
+        # the choise of beta schedule has big impact on performance
+        # we found squared cosine works the best
+        beta_schedule='squaredcos_cap_v2',
+        # clip output to [-1,1] to improve stability
+        clip_sample=True,
+        # our network predicts noise (instead of denoised action)
+        prediction_type='epsilon'
+    )
+
+
+    train(noise_pred_nw=noise_pred_nw, 
+          noise_scheduler=noise_scheduler, 
+          dataloader=DataLoader(data_path), 
+          epochs=100)
 
     print("Eval")
 

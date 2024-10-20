@@ -17,6 +17,42 @@ def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
     output = (v_end - output) / (v_end - v_start)
     return jnp.float16(output).clip(min = clip_min)
 
+
+
+class NoisePredictionNetwork(eqx.Module):
+    def __init__(self, input_dim, observation_dim):
+        
+
+        self.layers = [
+            # SinusoidalPosEmb(embed_dim = 64),
+            # eqx.nn.Linear(64, 128),
+            # eqx.nn.ReLU(),
+            # eqx.nn.Linear(128, 128),
+        ]
+
+    def predict_noise(self, x, k):
+        pass
+
+
+class NoiseScheduler:
+    def __init__(self, T, beta_schedule):
+        pass
+
+    def add_noise(self, actions, noise, k):
+        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
 class DiffusionPolicy:
     def __init__(self, key, data_path, T=50, gamma=0.99, sigma=0.2):
         # Initialize data loader and optimizer
@@ -176,10 +212,13 @@ class DiffusionPolicy:
 
         return DiffusionPolicy.MSE(Y, pred_y)
 
-    @jax.jit
+    # @jax.jit
     def MSE(y, X):
         # print(type(y), type(X))
-        # v = (jnp.array(X) - jnp.array(y)) ** 2
-        # print(jnp.max(v).item())
+        v = (jnp.array(X) - jnp.array(y)) ** 2
+        print(v)
+        print(jnp.max(v).item())
+        print(jnp.min(v).item())
+        exit(0)
         return jnp.mean((jnp.array(X) - jnp.array(y)) ** 2)
 
