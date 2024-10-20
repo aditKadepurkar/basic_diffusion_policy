@@ -20,7 +20,10 @@ def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
 class DiffusionPolicy:
     def __init__(self, key, data_path, T=50, gamma=0.99, sigma=0.2):
         # Initialize data loader and optimizer
-        self.data_loader = DataLoader(data_path, "data", 32)
+        if data_path is None:
+            self.data_loader = None
+        else:
+            self.data_loader = DataLoader(data_path, "data", 32)
 
         self.alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
         self.sigma = sigma
