@@ -179,6 +179,7 @@ class DiffusionPolicy:
     @jax.jit
     def MSE(y, X):
         # print(type(y), type(X))
-        v = (jnp.array(X) - jnp.array(y)) ** 2
+        # v = (jnp.array(X) - jnp.array(y)) ** 2
+        # print(jnp.max(v).item())
         return jnp.mean((jnp.array(X) - jnp.array(y)) ** 2)
 
