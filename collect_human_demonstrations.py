@@ -78,14 +78,14 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         )
 
         # remove the blankspace from the action, where possible
-        # if (action == prev_action).all():
-            # continue
+        if (action == prev_action).all():
+            continue
 
         # print("Action: ", action)
 
         state = env.sim.get_state().flatten()
 
-        print(state.shape)
+        # print(state.shape)
 
         # Get camera observation (e.g., wrist camera)
         camera_obs = env.sim.render(

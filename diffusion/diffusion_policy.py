@@ -37,7 +37,6 @@ class DiffusionPolicy:
     def inference(x, model, key, T=50, n_actions=4, output_dim=7):
         # Forward pass through the 
         # Should simplify the code.
-        
         # x will be the observations and states of the expert
         
         gamma = cosine_schedule(1)
@@ -112,8 +111,8 @@ class DiffusionPolicy:
 
         a_t1 = a_t - gamma * a_t1
 
-
         return a_t1
+
 
     # @jax.jit
     def forward_diffusion(a_0, T=50):
@@ -155,7 +154,6 @@ class DiffusionPolicy:
 
         # print(X.shape, observation.shape, k.shape)
 
-        # exit(0)
 
         nn_input = jnp.concatenate([X, observation, k], axis=3)
 
@@ -178,5 +176,6 @@ class DiffusionPolicy:
     @jax.jit
     def MSE(y, X):
         # print(type(y), type(X))
+        v = (jnp.array(X) - jnp.array(y)) ** 2
         return jnp.mean((jnp.array(X) - jnp.array(y)) ** 2)
 
