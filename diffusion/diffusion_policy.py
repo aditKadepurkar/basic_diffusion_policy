@@ -36,10 +36,32 @@ class NoisePredictionNetwork(eqx.Module):
 
 class NoiseScheduler:
     def __init__(self, T, beta_schedule):
-        pass
+        self.betas = beta_schedule
+        self.alphas = 1.0 - self.betas
+        self.alphas_cumprod = jnp.cumprod(self.alphas, axis=0)
 
-    def add_noise(self, actions, noise, k):
-        pass
+    def add_noise(
+        self,
+        original_samples,
+        noise,
+        timesteps,
+    ):
+        # Make sure alphas_cumprod and timestep have same device and dtype as original_samples
+        alphas_cumprod = self.alphas_cumprod
+        timesteps = timesteps
+
+        sqrt_alpha_prod = alphas_cumprod[timesteps] ** 0.5
+        sqrt_alpha_prod = sqrt_alpha_prod.flatten()
+        while len(sqrt_alpha_prod.shape) < len(original_samples.shape):
+            sqrt_alpha_prod = jnp.expand_dims(sqrt_alpha_prod, -1)
+
+        sqrt_one_minus_alpha_prod = (1 - alphas_cumprod[timesteps]) ** 0.5
+        sqrt_one_minus_alpha_prod = sqrt_one_minus_alpha_prod.flatten()
+        while len(sqrt_one_minus_alpha_prod.shape) < len(original_samples.shape):
+            sqrt_one_minus_alpha_prod = jnp.expand_dims(sqrt_one_minus_alpha_prod, -1)
+
+        noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
+        return noisy_samples
 
 
 

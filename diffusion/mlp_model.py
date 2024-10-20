@@ -14,7 +14,7 @@ class MLP(eqx.Module):
     layers: list
     def __init__(self, in_features, out_features=7):
         key = jax.random.PRNGKey(0)
-        key1, key2, key3 = jax.random.split(key, 3)
+        key0, key1, key2, key3 = jax.random.split(key, 4)
 
 
 
@@ -28,6 +28,7 @@ class MLP(eqx.Module):
 
 
     def __call__(self, x):
+        # print(x.shape)
         x = x.T
         for layer in self.layers:
             # print(x.shape)

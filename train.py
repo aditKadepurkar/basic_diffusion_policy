@@ -16,7 +16,7 @@ from diffusion.data_loader import DataLoader
 import optax
 from eval import eval_policy
 from diffusion.mlp_model import MLP
-from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+# from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 
 
@@ -54,15 +54,26 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
             # forward diffusion
-            noise_actions = noise_scheduler.apply_noise(actions, noise, timesteps)
+            noise_actions = noise_scheduler.add_noise(actions, noise, timesteps)
 
-            def loss(actions, T, observations):
-                noise_pred = noise_pred_nw(noise_actions, T, observations)
+            # @jax.jit
+            def loss(noise_pred_nw, actions, T, observations):
+                # print(actions.shape, T.shape, observations.shape)
+                batch, n_actions = actions.shape[:2]
+                k = jnp.broadcast_to(T[:, None, None], (batch, n_actions, 1))
+                # print(k)
+
+                X = jnp.concatenate([actions, observations, k], axis=2)
+
+                noise_pred = jax.vmap(noise_pred_nw)(X)
                 return jnp.mean(jnp.square(noise - noise_pred))
             
-            loss_value, grads = eqx.filter_value_and_grad(loss)(noise_actions, timesteps, obs)
+            loss_value, grads = eqx.filter_value_and_grad(loss)(noise_pred_nw, noise_actions, timesteps, obs)
 
-            params = eqx.filter(noise_pred_nw, eqx.is_array)
+            # print(loss_value)
+            # print(grads)
+
+            params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
             updates, opt_state = optim.update(grads, opt_state, params)
             noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
 
@@ -171,23 +182,24 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     # train(Policy=policy, lr=lr_schedule, epochs=100)
 
     # noise_pred_nw = NoisePredictionNetwork(7, 40)
-    noise_pred_nw = MLP(7, 40)
+    noise_pred_nw = MLP(40, 7)
 
-    noise_scheduler = DDPMScheduler(
-        num_train_timesteps=100,
-        # the choise of beta schedule has big impact on performance
-        # we found squared cosine works the best
-        beta_schedule='squaredcos_cap_v2',
-        # clip output to [-1,1] to improve stability
-        clip_sample=True,
-        # our network predicts noise (instead of denoised action)
-        prediction_type='epsilon'
-    )
+    def alpha_bar_fn(t):
+        return jnp.cos((t + 0.008) / 1.008 * jnp.pi / 2) ** 2
+
+    betas = []
+    for i in range(50):
+        t1 = i / 50
+        t2 = (i + 1) / 50
+        betas.append(min(1 - alpha_bar_fn(t2) / alpha_bar_fn(t1), 0.999))
+    betas = jnp.array(betas)
+
+    noise_scheduler = NoiseScheduler(50, betas)
 
 
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
-          dataloader=DataLoader(data_path), 
+          dataloader=DataLoader(data_path, "data", 32), 
           epochs=100)
 
     print("Eval")
