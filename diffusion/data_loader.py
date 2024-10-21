@@ -46,7 +46,7 @@ class DataLoader():
 
         self._indices = np.arange(self._dataset_size)
         if self.shuffle:
-            self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
+            self._indices = jax.random.permutation(jax.random.PRNGKey(7), self._indices)
             # np.random.shuffle(self._indices)
 
     def _load_data(self, indices):
@@ -65,7 +65,7 @@ class DataLoader():
                 data = f[self.dataset_name][demo]
             
                 states.append(data['states'][i:i+4])
-                actions.append(data['actions'][i+4:i+8])
+                actions.append(data['actions'][i+3:i+7])
 
             # does jnp.array twice so the shape is correct
             # print(states.shape, actions.shape)
@@ -91,7 +91,10 @@ class DataLoader():
     def shuffle_data(self):
         """Shuffle the indices if needed."""
         if self.shuffle:
-            self._indices = jax.random.permutation(jax.random.PRNGKey(0), self._indices)
+            self._indices = jax.random.permutation(jax.random.PRNGKey(13), self._indices)
+            # print(self._indices)
+            # self._indices = self._indices[:int(0.7*len(self._indices))]
+            # print(self._indices)
 
 # Usage
 # file_path = "/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5"

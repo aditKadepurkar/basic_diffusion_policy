@@ -182,7 +182,7 @@ class DiffusionPolicy:
 
         cache_Y = []
 
-        key = jax.random.PRNGKey(0)
+        key = jax.random.PRNGKey(42)
 
         for t in range(T):
             alpha = alpha_schedule[t]

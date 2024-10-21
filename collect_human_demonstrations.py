@@ -78,7 +78,7 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         )
 
         # remove the blankspace from the action, where possible
-        if (action == prev_action).all():
+        if (np.linalg.norm(action) < 0.1):
             continue
 
         # print("Action: ", action)
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     # collect demonstrations
     i = 0
     print(new_dir)
-    while i < 10:
+    while i < 100:
         collect_human_trajectory(env, device, args.arm, args.config, "demonstrations", i)
         i+=1
         gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

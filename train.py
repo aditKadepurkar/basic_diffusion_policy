@@ -59,7 +59,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
             # forward diffusion
-            noise_actions = noise_scheduler.add_noise(actions, noise, timesteps)
+            noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
 
             # @partial(jax.jit, static_argnames=['noise_pred_nw'])
             def loss(noise_pred_nw, actions, T, observations):
@@ -88,6 +88,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
             params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
             updates, opt_state = optim.update(grads, opt_state, params)
             noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
+        dataloader.shuffle_data()
 
 
 

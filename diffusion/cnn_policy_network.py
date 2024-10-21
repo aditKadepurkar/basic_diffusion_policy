@@ -14,7 +14,7 @@ from diffusion.embedding_layer import EmbeddingLayer
 
 class CnnDiffusionPolicy(eqx.Module):
     def __init__(self):
-        key = jax.random.PRNGKey(0)
+        key = jax.random.PRNGKey(15)
 
         self.layers = [
             FiLMBlock(3, 64, key=key),

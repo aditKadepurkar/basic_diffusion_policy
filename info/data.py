@@ -39,7 +39,7 @@ with h5py.File(DATA_FILE, "r") as fin:
             for i in range(actions.shape[0]):
                 action = actions[i]
                 state = states[i]
-                if not (action < 0.01).all():
+                if not (jnp.linalg.norm(action) < 0.01):
                     demo_group['actions'].resize((demo_group['actions'].shape[0] + 1), axis=0)
                     demo_group['actions'][-1] = action
                     demo_group['states'].resize((demo_group['states'].shape[0] + 1), axis=0)
