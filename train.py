@@ -17,6 +17,8 @@ import optax
 from eval import eval_policy
 from diffusion.mlp_model import MLP
 from functools import partial
+import tqdm
+from tqdm import trange
 # from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 
@@ -35,13 +37,14 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
     key = jax.random.key(0)
 
 
-    for e in range(epochs):
+    for e in trange(epochs):
         # max_loss_value = [0]
         params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
         opt_state = optim.init(params)
 
-        for data in dataloader:
-            
+        # with tqdm.tqdm(dataloader, unit=" batch") as tepoch:
+        for i, data in zip(trange(dataloader.get_batch_count(), desc="Batches"), dataloader):
+        
             obs = data['states']
             actions = data['actions']
 

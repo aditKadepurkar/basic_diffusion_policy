@@ -95,6 +95,8 @@ class DataLoader():
             # print(self._indices)
             # self._indices = self._indices[:int(0.7*len(self._indices))]
             # print(self._indices)
+    def get_batch_count(self):
+        return self._dataset_size // self.batch_size
 
 # Usage
 # file_path = "/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5"
