@@ -78,6 +78,10 @@ def eval_policy(Policy):
     # extend the obs to 4 steps
     obs = jnp.broadcast_to(obs, (4, obs.shape[0]))
 
+    # try forcing the first few observations to see if it follows the expert
+    # that would tell us if we just need more data, or something else.
+
+
     # print(obs.shape)
 
     while not done:

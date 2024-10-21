@@ -16,6 +16,7 @@ from diffusion.data_loader import DataLoader
 import optax
 from eval import eval_policy
 from diffusion.mlp_model import MLP
+from functools import partial
 # from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 
@@ -31,8 +32,11 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
     optim = optax.adamw(learning_rate=lr)
 
+    key = jax.random.key(0)
+
 
     for e in range(epochs):
+        # max_loss_value = [0]
         params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
         opt_state = optim.init(params)
 
@@ -45,18 +49,19 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
 
+            key, subkey, subkey_2 = jax.random.split(key, 3)
 
 
             # random noise
-            noise = jax.random.normal(jax.random.key(0), (actions.shape))
+            noise = jax.random.normal(subkey, (actions.shape))
 
-            timesteps = jax.random.randint(jax.random.key(0), (actions.shape[0],), 0, 50)
+            timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
 
 
             # forward diffusion
             noise_actions = noise_scheduler.add_noise(actions, noise, timesteps)
 
-            # @jax.jit
+            # @partial(jax.jit, static_argnames=['noise_pred_nw'])
             def loss(noise_pred_nw, actions, T, observations):
                 # print(actions.shape, T.shape, observations.shape)
                 batch, n_actions = actions.shape[:2]
@@ -66,9 +71,16 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                 X = jnp.concatenate([actions, observations, k], axis=2)
 
                 noise_pred = jax.vmap(noise_pred_nw)(X)
-                return jnp.mean(jnp.square(noise - noise_pred))
+                ret = jnp.square(noise - noise_pred)
+                # ret_max = jnp.max(ret)
+                # print(ret_max)
+                return jnp.mean(ret)
             
-            loss_value, grads = eqx.filter_value_and_grad(loss)(noise_pred_nw, noise_actions, timesteps, obs)
+            loss_value, grads = eqx.filter_value_and_grad(loss)(
+                noise_pred_nw, 
+                noise_actions, 
+                timesteps, 
+                obs,)
 
             # print(loss_value)
             # print(grads)
@@ -77,8 +89,9 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
             updates, opt_state = optim.update(grads, opt_state, params)
             noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
 
-            print(loss_value)
 
+
+        print(f"Epoch: {e+1}, Loss: {loss_value}")
 
 
 
