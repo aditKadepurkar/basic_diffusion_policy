@@ -44,6 +44,8 @@ class DataLoader():
             # print(self.sizes)
             # self._dataset_size = f[dataset_name]['demo_1']['states'].shape[0]
 
+        print(f"Expert demos: {len(self.sets)}")
+
         self._indices = np.arange(self._dataset_size)
         if self.shuffle:
             self._indices = jax.random.permutation(jax.random.PRNGKey(7), self._indices)

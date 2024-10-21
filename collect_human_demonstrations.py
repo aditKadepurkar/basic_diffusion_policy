@@ -78,8 +78,8 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         )
 
         # remove the blankspace from the action, where possible
-        if (np.linalg.norm(action) < 0.1):
-            continue
+        # if (np.linalg.norm(action) < 0.1):
+        #     continue
 
         # print("Action: ", action)
 
