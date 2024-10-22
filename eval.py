@@ -12,12 +12,12 @@ from robosuite.controllers import load_controller_config
 from diffusion.diffusion_policy import DiffusionPolicy
 
 
-def eval_policy(Policy):
+def eval_policy(model):
     """
     Evaluate the model on the given data_loader.
     """
 
-    model = Policy.model
+    # model = Policy.model
 
     # Arguments
     parser = argparse.ArgumentParser()
@@ -76,7 +76,7 @@ def eval_policy(Policy):
 
     obs = env.sim.get_state().flatten() # 1 step observation
     # extend the obs to 4 steps
-    obs = jnp.broadcast_to(obs, (4, obs.shape[0]))
+    obs = jnp.tile(obs, 4) # (128,) or something
 
     # try forcing the first few observations to see if it follows the expert
     # that would tell us if we just need more data, or something else.
@@ -89,28 +89,37 @@ def eval_policy(Policy):
         
 
         obs1 = env.sim.get_state().flatten()
-        obs = jnp.concatenate([obs[1:], jnp.expand_dims(obs1, axis=0)], axis=0)
 
-        # obs = jnp.array([obs])
+        # each obs is 128/4 = 32
+        obs = jnp.concatenate([obs[32:], obs1])
 
-        # print(obs.shape)
 
-        # Pass the observation through the policy to get the predicted action
-        action = DiffusionPolicy.inference(jnp.array([obs]), model, jax.random.PRNGKey(0))[0]
+        action = jax.random.normal(jax.random.PRNGKey(113), (28))
 
-        # print(action.shape)
+        T = 50
+
+        # TODO EVALUATE WHICH METHOD WORKS BETTER
+
+        # METHOD 1!
+        # for t in range(T, 0, -1):
+        #     inp = jnp.concatenate([obs, action, jnp.array([t])], axis=0)
+        #     # print(inp.shape)
+
+        #     action = model(inp)
+
+        # METHOD 2!
+        action = model(jnp.concatenate([obs, action, jnp.array([1])]))
 
         # Take the action in the environment
-        env.step(action[0])
+        env.step(action[:7])
 
-        # Optionally render the environment
         env.render()
 
         obs1 = env.sim.get_state().flatten()
-        obs = jnp.concatenate([obs[1:], jnp.expand_dims(obs1, axis=0)], axis=0)
-        # obs = jnp.array([obs])
 
-        env.step(action[1])
+        obs = jnp.concatenate([obs[32:], obs1])
+
+        env.step(action[7:14])
 
         env.render()
 

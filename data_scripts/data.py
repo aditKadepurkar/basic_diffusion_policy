@@ -1,5 +1,7 @@
 """
-In this file we analyze the data
+In this file we analyze the data and clean it
+
+Currently has a bug 10/21/2024
 """
 
 

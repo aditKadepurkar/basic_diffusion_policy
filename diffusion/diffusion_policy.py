@@ -19,21 +19,6 @@ def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
 
 
 
-class NoisePredictionNetwork(eqx.Module):
-    def __init__(self, input_dim, observation_dim):
-        
-
-        self.layers = [
-            # SinusoidalPosEmb(embed_dim = 64),
-            # eqx.nn.Linear(64, 128),
-            # eqx.nn.ReLU(),
-            # eqx.nn.Linear(128, 128),
-        ]
-
-    def predict_noise(self, x, k):
-        pass
-
-
 class NoiseScheduler:
     def __init__(self, T, beta_schedule):
         self.betas = beta_schedule
@@ -100,23 +85,23 @@ class DiffusionPolicy:
         # Should simplify the code.
         # x will be the observations and states of the expert
         
-        gamma = cosine_schedule(1)
+        # gamma = cosine_schedule(1)
 
-        _, sigma = gamma_to_alpha_sigma(gamma)
+        # _, sigma = gamma_to_alpha_sigma(gamma)
 
-        alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
+        # alpha = jnp.cos(jnp.linspace(0, jnp.pi / 2, T)) ** 2
 
         key, subkey = jax.random.split(key)
-        a_t = sigma * jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
+        a_t = jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
 
         for k in range(T):
-            gamma = cosine_schedule(k)
-            _, sigma = gamma_to_alpha_sigma(gamma)
+            # gamma = cosine_schedule(k)
+            # _, sigma = gamma_to_alpha_sigma(gamma)
 
-            a_t = DiffusionPolicy.diffusion_step(a_t, x, model, jnp.array(k), gamma)
+            a_t = DiffusionPolicy.diffusion_step(a_t, x, model, jnp.array(k))
             key, subkey = jax.random.split(key)
-            a_t += sigma * jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
-            a_t = alpha[T-k-1] * a_t
+            a_t += jax.random.normal(subkey, (x.shape[0], n_actions, output_dim))
+            # a_t = a_t
 
         return a_t
 
@@ -170,7 +155,7 @@ class DiffusionPolicy:
         a_t1 = jax.vmap(model)(nn_input)
 
 
-        a_t1 = a_t - gamma * a_t1
+        a_t1 = a_t - a_t1
 
         return a_t1
 

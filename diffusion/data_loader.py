@@ -60,14 +60,24 @@ class DataLoader():
         with h5py.File(self.file_path, 'r') as f:
             for i in indices:
                 idx = jnp.searchsorted(self.sizes, i, side='right')
+                if i == self.sizes[idx]:
+                    # the first state of a demo
+
+                    # concat first state 4 times
+                    # data['states'][i]
+                    states.append(jnp.array([data['states'][i]] * 4))
+                    actions.append(jnp.ravel([data['actions'][i:i+4]]))
+                
                 if idx > 0:
                     i -= self.sizes[idx - 1]
+                
+
                 demo = self.sets[idx]
 
                 data = f[self.dataset_name][demo]
             
-                states.append(data['states'][i:i+4])
-                actions.append(data['actions'][i+3:i+7])
+                states.append(jnp.ravel(data['states'][i:i+4]))
+                actions.append(jnp.ravel(data['actions'][i+3:i+7]))
 
             # does jnp.array twice so the shape is correct
             # print(states.shape, actions.shape)

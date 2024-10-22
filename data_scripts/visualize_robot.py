@@ -12,7 +12,8 @@ from robosuite.controllers import load_controller_config
 from robosuite.wrappers import GymWrapper
 
 
-DATA_FILE = "demonstrations/demo.hdf5"
+# DATA_FILE = "demonstrations/demo.hdf5"
+DATA_FILE = "demonstrations/1729535071_8612459/demo.hdf5"
 
 DEMO = "demo_2"
 
@@ -72,16 +73,19 @@ observation = env.reset()
 
 env.render()
 
+
 with h5py.File(DATA_FILE, "r") as fin:
-    data = fin['data'][DEMO]['actions']
+    for demo in fin['data'].keys():
+        env.reset()
+        data = fin['data'][demo]['actions']
 
     # print(data['states'].shape)
     # print(data['actions'].shape)
 
-    for action in data:
-        # print(action)
-        env.step(action)
-        env.render()
+        for action in data:
+            # print(action)
+            env.step(action)
+            env.render()
     
 
 

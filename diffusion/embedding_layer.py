@@ -2,10 +2,9 @@
 
 import equinox as eqx
 
-class EmbeddingLayer(eqx.Module):
-    def __init__(self, in_channels, out_channels):
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+class SinusoidalPositionEmbedding(eqx.Module):
+    def __init__(self, embed_dim):
+        embed_dim = embed_dim
 
     def __call__(self, x):
         pass

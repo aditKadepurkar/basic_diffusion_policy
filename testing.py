@@ -1,6 +1,7 @@
 import robosuite as suite
 from robosuite.controllers import load_controller_config
 import numpy as np
+from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 # Create a Robosuite environment with a UR5e robot for object reorientation
 def create_reorientation_env():
@@ -21,6 +22,7 @@ def create_reorientation_env():
 
 
 def main():
+
     env = create_reorientation_env()
 
     obs = env.reset()
