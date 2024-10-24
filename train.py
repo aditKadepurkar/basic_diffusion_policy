@@ -7,7 +7,7 @@ import argparse
 import os
 import json
 import equinox as eqx
-from diffusion.diffusion_policy import DiffusionPolicy, NoisePredictionNetwork, NoiseScheduler
+from diffusion.diffusion_policy import DiffusionPolicy, NoiseScheduler
 import jax.numpy as jnp
 import jax
 from PIL import Image
@@ -69,9 +69,8 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                 """
                 observations: (batch, observation_dim)
                 actions: (batch, n_actions)
-                
                 """
-                
+
                 # print(actions.shape, T.shape, observations.shape)
                 # print(observations)
 
@@ -220,6 +219,10 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     # noise_pred_nw = NoisePredictionNetwork(7, 40)
     # noise_pred_nw = MLP(157, 7*4)
     noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=30*4)
+    
+    params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
+    param_count = sum(x.size for x in jax.tree_leaves(params))
+    print(f"Number of Parameters: {param_count:e}")
 
 
     def alpha_bar_fn(t):
