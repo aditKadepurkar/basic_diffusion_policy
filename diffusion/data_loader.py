@@ -66,7 +66,7 @@ class DataLoader():
                     # concat first state 4 times
                     # data['states'][i]
                     states.append(jnp.array([data['states'][i]] * 4))
-                    actions.append(jnp.ravel([data['actions'][i:i+4]]))
+                    actions.append(jnp.ravel(data['actions'][i:i+4]))
                 
                 if idx > 0:
                     i -= self.sizes[idx - 1]

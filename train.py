@@ -71,6 +71,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                 actions: (batch, n_actions)
                 """
 
+                # print(actions.shape)
                 # print(actions.shape, T.shape, observations.shape)
                 # print(observations)
 
@@ -82,7 +83,8 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
 
-                noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
+                noise_pred = noise_pred_nw(actions, T, observations)
+                # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
 
                 loss = optax.l2_loss(noise_pred, noise)
 
@@ -218,10 +220,10 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     # noise_pred_nw = NoisePredictionNetwork(7, 40)
     # noise_pred_nw = MLP(157, 7*4)
-    noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=30*4)
+    noise_pred_nw = CnnDiffusionPolicy(action_dim=28, obs_dim=32*4)
     
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
-    param_count = sum(x.size for x in jax.tree_leaves(params))
+    param_count = sum(x.size for x in jax.tree.leaves(params))
     print(f"Number of Parameters: {param_count:e}")
 
 
@@ -240,7 +242,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
-          dataloader=DataLoader(data_path, "data", 32), 
+          dataloader=DataLoader(data_path, "data", 28), 
           epochs=100)
 
     print("Eval")
