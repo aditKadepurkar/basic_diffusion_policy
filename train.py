@@ -75,18 +75,18 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                 # print(actions.shape, T.shape, observations.shape)
                 # print(observations)
 
-                batch, n_actions = actions.shape
+                batch, n_actions, steps = actions.shape
                 # k = jnp.broadcast_to(T[:, None], (batch, n_actions))
                 # k = jnp.reshape(T, (batch, 1))
 
                 # X = jnp.concatenate([actions, observations, k], axis=1)
 
 
-
+                # print(actions.shape, T.shape, observations.shape)
                 noise_pred = noise_pred_nw(actions, T, observations)
                 # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
 
-                loss = optax.l2_loss(noise_pred, noise)
+                loss = jnp.mean(jnp.square(noise - noise_pred))
 
                 return loss
 
@@ -127,66 +127,6 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
 
-# def train(Policy, lr=1e-4, epochs=100):
-
-#     model = Policy.model
-#     data_loader = Policy.data_loader
-#     optim = optax.adamw(learning_rate=lr)
-
-
-
-#         # print(model)
-#     for e in range(epochs):
-#         max_loss = 0
-#         params = eqx.filter(model, eqx.is_inexact_array)
-#         # print(f"Initial Params: {params}")
-        
-#         opt_state = optim.init(params)
-
-#         # Load data
-#         for data in data_loader:
-#             observations = data['states']
-#             expert_action_sequence = data['actions']
-
-#             # print(observations.shape, expert_action_sequence.shape)
-
-#             # Loop over each observation
-            
-#             # for i in range(len(observations)):
-#             a_t, loss_value, grads = DiffusionPolicy.predict_action(
-#                 model=model,
-#                 observation=jnp.copy(observations),
-#                 Y=jnp.array(expert_action_sequence),
-#                 key=jax.random.PRNGKey(0),
-#                 T=50,
-#                 n_actions=4,
-#                 alpha=Policy.alpha
-#             )
-#             # print(grads)
-#             # loss_period += loss_value
-
-#             # if accumulated_grads is None:
-#                 # accumulated_grads = grads
-#             # else:
-#                 # Accumulate gradients across steps
-#                 # accumulated_grads = jax.tree_util.tree_map(lambda g1, g2: g1 + g2, accumulated_grads, grads)
-
-                
-#                 # if (i + 1) % 4 == 0:
-#                     # loss_period /= 4
-#                     # print(f"Loss: {loss_period}")
-#                 # print(f"Gradients: {grads}")
-
-#             # loss_value /= len(observations)
-#             if loss_value > max_loss:
-#                 max_loss = loss_value
-
-#             params = eqx.filter(model, eqx.is_array)
-#             updates, opt_state = optim.update(grads, opt_state, params)
-#             model = eqx.apply_updates(model, updates)
-#             # print(f"Loss: {loss_period}")
-#         print(f"Epoch: {e+1}, Loss: {loss_value}, Max Loss: {max_loss}")
-#     print("Training complete")
 
 def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
@@ -208,7 +148,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     data_path = "demonstrations/1729535071_8612459/demo.hdf5"
 
-    policy = DiffusionPolicy(key=key, data_path=data_path)
+    # policy = DiffusionPolicy(key=key, data_path=data_path)
 
     print("Training the policy")
 
@@ -220,7 +160,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     # noise_pred_nw = NoisePredictionNetwork(7, 40)
     # noise_pred_nw = MLP(157, 7*4)
-    noise_pred_nw = CnnDiffusionPolicy(action_dim=28, obs_dim=32*4)
+    noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=128, key=key)
     
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
     param_count = sum(x.size for x in jax.tree.leaves(params))

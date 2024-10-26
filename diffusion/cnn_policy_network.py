@@ -17,17 +17,17 @@ from diffusion.embedding_layer import embedding_layer, mish
 
 class CnnDiffusionPolicy(eqx.Module):
     layers: list
-    def __init__(self, action_dim, obs_dim):
+    def __init__(self, action_dim, obs_dim, key=None):
         key = jax.random.PRNGKey(15)
 
         key0, key1, key2, key3 = jax.random.split(key, 4)
         del key
 
 
-        dims = [action_dim, 256, 512, 1024]
+        dims = [action_dim, 7*7]
         kernel_size = 5
         embed_dim = 256
-        n_groups = 8
+        n_groups = 7
 
         encoder = [
                 embedding_layer,
@@ -93,10 +93,10 @@ class CnnDiffusionPolicy(eqx.Module):
         key0, key1 = jax.random.split(key3, 2)
         del key3        
 
-        final_conv = eqx.nn.Sequential(layers=[
+        final_conv = [
             Conv1dBlock(dims[0], dims[0], kernel_size=kernel_size, key=key0),
             eqx.nn.Conv1d(dims[0], action_dim, 1, key=key1),
-        ])
+        ]
 
 
         self.layers = [
@@ -107,19 +107,17 @@ class CnnDiffusionPolicy(eqx.Module):
             final_conv
         ]
 
-
+    @eqx.filter_jit
     def __call__(self, x, timestep, cond):
         # print(x.shape, timestep.shape, cond.shape)
+        x = jnp.swapaxes(x, 1, 2)
+        # print(x.shape)
 
         for layer in self.layers[0]:
             # print(timestep.shape)
             timestep = layer(timestep.T)
 
         features = timestep.T
-
-        # resize x
-        # x = jnp.array([x])
-        # x = jnp.reshape(x, (1, -1))
 
         # print("At 115, ", x.shape, features.shape, cond.shape)
 
@@ -129,6 +127,7 @@ class CnnDiffusionPolicy(eqx.Module):
         # down modules
         h = []
         for (conv1, conv2, down) in self.layers[1]:
+            # print(conv1)
             x = conv1(x, features)
             x = conv2(x, features)
             h.append(x)
@@ -140,13 +139,18 @@ class CnnDiffusionPolicy(eqx.Module):
 
         # up modules
         for (conv1, conv2, up) in self.layers[3]:
-            x = jnp.concatenate([x, h.pop()], axis=-1)
+            x = jnp.concatenate([x, h.pop()], axis=1)
+            # print(x.shape)
             x = conv1(x, features)
             x = conv2(x, features)
             x = up(x)
 
         # final conv
-        x = self.layers[4](x)
+        for layer in self.layers[4]:
+            x = jax.vmap(layer)(x)
+            x = jnp.swapaxes(x, 1, 2)
+
+        # print(x.shape)
 
         return x
 
@@ -170,61 +174,66 @@ class ResidualBlock(eqx.Module):
         self.layers = [
             Conv1dBlock(dim_in, dim_out, subkey3, kernel_size, n_groups),
             cond_encoder,
-            Conv1dBlock(dim_in, dim_out, subkey4, kernel_size, n_groups),
+            Conv1dBlock(dim_out, dim_out, subkey4, kernel_size, n_groups),
             residual,
         ]
 
         self.out_channels = out_channels
 
+    @eqx.filter_jit
     def __call__(self, x, obs, key=None):
         # print(x.shape, obs.shape)
+        # print(self.layers[0])
+        # print(x.shape)
 
-        out = self.layers[0](x)
+        out = jax.vmap(self.layers[0])(x)
 
         # print(out.shape)
+        out = jnp.swapaxes(out, 1, 2)
+
+
+        # this will do the film layer stuff
 
         embedding = obs.T
+        # print("Embedding shape: ", embedding.shape)
         # encoder
         for layer in self.layers[1]:
             embedding = layer(embedding)
         embedding = embedding
 
+        # print("Embedding shape: ", embedding.shape, obs.shape)
 
-        # print(embedding.shape)
+        embed = embedding.reshape(embedding.shape[0] // 2, 2, -1)
 
-        # reshape embedding
-        embed = embedding.reshape(embedding.shape[0]//2, 2, -1)
-        
+        # TODO need to make the embedding part work again
+
         scale = embed[:, 0, ...]
-        bias = embed[:, 1, ...]
-                
-        out = out * scale + bias
+        # bias = embed[:, 1, ...]
+        # out = out * scale # + bias
+        # out = jnp.expand_dims(out.T, axis=2)
 
-        out = self.layers[2](out)
+        out = jax.vmap(self.layers[2])(out)
 
-        out = out[:28, :]
+        x_out = jax.vmap(self.layers[3])(x)
 
-        print(out.shape)
+        out = jnp.swapaxes(out, 1, 2)
 
 
-        return out + self.layers[3](x)
+        return out + x_out
 
 
 class Conv1dBlock(eqx.Module):
     layers: list
-    def __init__(self, inp_channels, out_channels, key, kernel_size, n_groups=8):
+    def __init__(self, inp_channels, out_channels, key, kernel_size, n_groups=7):
 
-        if out_channels == 28:
-            n_groups = 7
         self.layers = [
             eqx.nn.Conv1d(inp_channels, out_channels, kernel_size, padding=kernel_size // 2, key=key, use_bias=False),
             eqx.nn.GroupNorm(n_groups, out_channels),
             jax.nn.mish,
         ]
 
+    @eqx.filter_jit
     def __call__(self, x):
-        x = x.T
         for layer in self.layers:
-            # print(x.shape)
             x = layer(x)
         return x.T

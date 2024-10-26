@@ -66,7 +66,7 @@ class DataLoader():
                     # concat first state 4 times
                     # data['states'][i]
                     states.append(jnp.array([data['states'][i]] * 4))
-                    actions.append(jnp.ravel(data['actions'][i:i+4]))
+                    actions.append(data['actions'][i:i+4])
                 
                 if idx > 0:
                     i -= self.sizes[idx - 1]
@@ -77,7 +77,7 @@ class DataLoader():
                 data = f[self.dataset_name][demo]
             
                 states.append(jnp.ravel(data['states'][i:i+4]))
-                actions.append(jnp.ravel(data['actions'][i+3:i+7]))
+                actions.append(data['actions'][i+3:i+7])
 
             # does jnp.array twice so the shape is correct
             # print(states.shape, actions.shape)
