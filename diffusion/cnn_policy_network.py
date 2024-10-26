@@ -207,9 +207,9 @@ class ResidualBlock(eqx.Module):
 
         # TODO need to make the embedding part work again
 
-        scale = embed[:, 0, ...]
-        # bias = embed[:, 1, ...]
-        # out = out * scale # + bias
+        scale = embed[:, 0, ...].reshape(out.shape[0], out.shape[1], 1)
+        bias = embed[:, 1, ...].reshape(out.shape[0], out.shape[1], 1)
+        out = out * scale + bias
         # out = jnp.expand_dims(out.T, axis=2)
 
         out = jax.vmap(self.layers[2])(out)

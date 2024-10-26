@@ -81,7 +81,7 @@ def eval_policy(model):
     # try forcing the first few observations to see if it follows the expert
     # that would tell us if we just need more data, or something else.
 
-
+    obs = jnp.array([obs])
     # print(obs.shape)
 
     while not done:
@@ -91,12 +91,13 @@ def eval_policy(model):
         obs1 = env.sim.get_state().flatten()
 
         # each obs is 128/4 = 32
-        obs = jnp.concatenate([obs[32:], obs1])
+        obs = obs[:, 32:]
+        obs = jnp.concatenate([obs, obs1[None, :]], axis=-1)
 
 
-        action = jax.random.normal(jax.random.PRNGKey(113), (28))
+        action = jax.random.normal(jax.random.PRNGKey(113), (1, 4, 7))
 
-        T = 50
+        T = jnp.array([1])
 
         # TODO EVALUATE WHICH METHOD WORKS BETTER
 
@@ -108,18 +109,24 @@ def eval_policy(model):
         #     action = model(inp)
 
         # METHOD 2!
-        action = model(jnp.concatenate([obs, action, jnp.array([1])]))
+        # print(action.shape, T.shape, obs.shape)
+        action = model(action, T, obs)
+
+        action = action[0]
 
         # Take the action in the environment
-        env.step(action[:7])
+        env.step(action[0])
 
         env.render()
 
         obs1 = env.sim.get_state().flatten()
 
-        obs = jnp.concatenate([obs[32:], obs1])
 
-        env.step(action[7:14])
+
+        obs = obs[:, 32:]
+        obs = jnp.concatenate([obs, obs1[None, :]], axis=-1)
+
+        env.step(action[1])
 
         env.render()
 

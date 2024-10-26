@@ -67,22 +67,11 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
             # @partial(jax.jit, static_argnames=['noise_pred_nw'])
             def loss(noise_pred_nw, actions, T, observations):
                 """
-                observations: (batch, observation_dim)
-                actions: (batch, n_actions)
+                observations: (batch, observation_dim * n_observations)
+                actions: (batch, n_actions, action_dim)
                 """
 
-                # print(actions.shape)
-                # print(actions.shape, T.shape, observations.shape)
-                # print(observations)
-
                 batch, n_actions, steps = actions.shape
-                # k = jnp.broadcast_to(T[:, None], (batch, n_actions))
-                # k = jnp.reshape(T, (batch, 1))
-
-                # X = jnp.concatenate([actions, observations, k], axis=1)
-
-
-                # print(actions.shape, T.shape, observations.shape)
                 noise_pred = noise_pred_nw(actions, T, observations)
                 # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
 
@@ -118,13 +107,25 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
         print(f"Epoch: {e+1}, Loss: {loss_value}")
 
 
+def make(*, action_dim, obs_dim):
+    return CnnDiffusionPolicy(
+        action_dim=action_dim,
+        obs_dim=obs_dim,
+    )
 
 
+def save(filename, hyperparams, model):
+    with open(filename, "wb") as f:
+        hyperparam_str = json.dumps(hyperparams)
+        f.write((hyperparam_str + "\n").encode())
+        eqx.tree_serialise_leaves(f, model)
 
 
-
-
-
+def load(filename):
+    with open(filename, "rb") as f:
+        hyperparams = json.loads(f.readline().decode())
+        model = make(**hyperparams)
+        return eqx.tree_deserialise_leaves(f, model)
 
 
 
@@ -182,8 +183,14 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
-          dataloader=DataLoader(data_path, "data", 28), 
+          dataloader=DataLoader(data_path, "data", 512), 
           epochs=100)
+    
+    print("Saving model...")
+    save("model", {"action_dim": 7, "obs_dim": 128}, noise_pred_nw)
+    print("Model saved!")
+    
+    input("Press Enter to continue to Final Evaluation...")
 
     print("Eval")
 
