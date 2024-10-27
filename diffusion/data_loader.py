@@ -99,6 +99,7 @@ class DataLoader():
 
         # Load and return batch
         return self._load_data(batch_indices)
+    
 
     def shuffle_data(self):
         """Shuffle the indices if needed."""

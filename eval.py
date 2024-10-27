@@ -12,7 +12,7 @@ from robosuite.controllers import load_controller_config
 from diffusion.diffusion_policy import DiffusionPolicy
 
 
-def eval_policy(model):
+def eval_policy(model, noise_scheduler):
     """
     Evaluate the model on the given data_loader.
     """
@@ -97,20 +97,21 @@ def eval_policy(model):
 
         action = jax.random.normal(jax.random.PRNGKey(113), (1, 4, 7))
 
-        T = jnp.array([1])
+        T = 50
 
         # TODO EVALUATE WHICH METHOD WORKS BETTER
 
         # METHOD 1!
-        # for t in range(T, 0, -1):
-        #     inp = jnp.concatenate([obs, action, jnp.array([t])], axis=0)
-        #     # print(inp.shape)
-
-        #     action = model(inp)
+        for t in range(T, -1, -1):
+            # print(action.shape, jnp.array([t]).shape, obs.shape)
+            noise_pred = model(action, jnp.array([t]), obs)
+            # print(noise_pred.shape)
+            action, = noise_scheduler.step(noise_pred, t, action)
+            # print(action.shape)
 
         # METHOD 2!
         # print(action.shape, T.shape, obs.shape)
-        action = model(action, T, obs)
+        # action = model(action, T, obs)
 
         action = action[0]
 

@@ -4,8 +4,8 @@ import jax.numpy as jnp
 import json
 import equinox as eqx
 from diffusion.cnn_policy_network import CnnDiffusionPolicy
-from eval import eval_policy
-from diffusion.diffusion_policy import NoiseScheduler
+from diffusion.data_loader import DataLoader
+# from eval import eval_policy
 
 def make(*, action_dim, obs_dim):
     return CnnDiffusionPolicy(
@@ -23,17 +23,12 @@ model = load("model")
 print(model)
 print("Model loaded successfully!")
 
-def alpha_bar_fn(t):
-        return jnp.cos((t + 0.008) / 1.008 * jnp.pi / 2) ** 2
+dataloader = DataLoader("demonstrations/1729535071_8612459/demo.hdf5", "data", 32)
 
-betas = []
-for i in range(50):
-    t1 = i / 50
-    t2 = (i + 1) / 50
-    betas.append(min(1 - alpha_bar_fn(t2) / alpha_bar_fn(t1), 0.999))
-betas = jnp.array(betas)
+for data in dataloader:
+    
+    
+    pred = model(data)
 
-noise_scheduler = NoiseScheduler(50, betas)
-
-eval_policy(model=model, noise_scheduler=noise_scheduler)
+    print(data)
 

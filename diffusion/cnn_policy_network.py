@@ -24,7 +24,7 @@ class CnnDiffusionPolicy(eqx.Module):
         del key
 
 
-        dims = [action_dim, 7*7]
+        dims = [action_dim, 7*7*7]
         kernel_size = 5
         embed_dim = 256
         n_groups = 7
@@ -127,11 +127,13 @@ class CnnDiffusionPolicy(eqx.Module):
         # down modules
         h = []
         for (conv1, conv2, down) in self.layers[1]:
-            # print(conv1)
+            # print(x.shape)
             x = conv1(x, features)
+            # print(x.shape)
             x = conv2(x, features)
             h.append(x)
-            x = down(x)
+            # print(x.shape)
+            x = jax.vmap(down)(x)
 
         # mid
         for residual in self.layers[2]:
@@ -142,8 +144,11 @@ class CnnDiffusionPolicy(eqx.Module):
             x = jnp.concatenate([x, h.pop()], axis=1)
             # print(x.shape)
             x = conv1(x, features)
+            # print(x.shape)
             x = conv2(x, features)
-            x = up(x)
+            # print(x.shape)
+            x = jax.vmap(up)(x)
+            # print(x.shape)
 
         # final conv
         for layer in self.layers[4]:

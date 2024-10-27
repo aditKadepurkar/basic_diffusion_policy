@@ -47,6 +47,41 @@ class NoiseScheduler:
 
         noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
         return noisy_samples
+    def step(
+        self, noise_pred, t, action
+    ):
+        prev_t = t - 1
+
+        alpha_prod_t = self.alphas_cumprod[t]
+        alpha_prod_t_prev = self.alphas_cumprod[prev_t] if prev_t >= 0 else jnp.array(1.0)
+        beta_prod_t = 1 - alpha_prod_t
+        beta_prod_t_prev = 1 - alpha_prod_t_prev
+        current_alpha_t = alpha_prod_t / alpha_prod_t_prev
+        current_beta_t = 1 - current_alpha_t
+
+
+        pred_original_sample = (action - beta_prod_t ** (0.5) * noise_pred) / alpha_prod_t ** (0.5)
+
+        pred_original_sample_coeff = (alpha_prod_t_prev ** (0.5) * current_beta_t) / beta_prod_t
+        current_sample_coeff = current_alpha_t ** (0.5) * beta_prod_t_prev / beta_prod_t
+
+        pred_prev_sample = pred_original_sample_coeff * pred_original_sample + current_sample_coeff * action
+
+        current_beta_t = 1 - alpha_prod_t / alpha_prod_t_prev
+        variance = (1 - alpha_prod_t_prev) / (1 - alpha_prod_t) * current_beta_t
+        variance = jnp.clip(variance, a_min=1e-20)
+
+        variance = 0
+        if t > 0:
+            device = noise_pred.device
+            variance_noise = jax.random.normal(jax.random.PRNGKey(t), noise_pred.shape)
+
+            variance = (variance ** 0.5) * variance_noise
+
+        pred_prev_sample = pred_prev_sample + variance
+
+        return (pred_prev_sample,)
+
 
 
 

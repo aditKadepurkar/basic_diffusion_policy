@@ -19,7 +19,7 @@ from diffusion.mlp_model import MLP
 from functools import partial
 import tqdm
 from tqdm import trange
-# from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 
@@ -28,7 +28,7 @@ from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
-    lr = optax.cosine_decay_schedule(1e-4, 100)
+    lr = optax.cosine_decay_schedule(1e-4, dataloader.get_batch_count() * epochs)
     # alpha = 
     # gamma = 
 
@@ -43,68 +43,72 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
         opt_state = optim.init(params)
 
         # Iterate over batches
-        for i, data in zip(trange(dataloader.get_batch_count(), desc="Batches"), dataloader):
+        with tqdm.tqdm(dataloader, desc="Batches") as data_iter:
+            for data in data_iter:
+        # for i, data in zip(trange(dataloader.get_batch_count(), desc="Batches"), dataloader):
         
-            obs = data['states']
-            actions = data['actions']
+                obs = data['states']
+                actions = data['actions']
 
-            # film layer stuff
-
-
-
-            key, subkey, subkey_2 = jax.random.split(key, 3)
+                # film layer stuff
 
 
-            # random noise
-            noise = jax.random.normal(subkey, (actions.shape))
 
-            timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
+                key, subkey, subkey_2 = jax.random.split(key, 3)
 
 
-            # forward diffusion
-            noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
+                # random noise
+                noise = jax.random.normal(subkey, (actions.shape))
 
-            # @partial(jax.jit, static_argnames=['noise_pred_nw'])
-            def loss(noise_pred_nw, actions, T, observations):
-                """
-                observations: (batch, observation_dim * n_observations)
-                actions: (batch, n_actions, action_dim)
-                """
-
-                batch, n_actions, steps = actions.shape
-                noise_pred = noise_pred_nw(actions, T, observations)
-                # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
-
-                loss = jnp.mean(jnp.square(noise - noise_pred))
-
-                return loss
-
-                # ret = jnp.square(noise - noise_pred)
+                timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
 
 
-                # ret_max = jnp.max(ret)
-                # print(ret_max)
-                # return jnp.mean(ret)
-            
-            loss_value, grads = eqx.filter_value_and_grad(loss)(
-                noise_pred_nw, 
-                noise_actions, 
-                timesteps, 
-                obs,)
-            
-            # i.set_postfix(loss=loss_value)
+                # forward diffusion
+                noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
 
-            # print(loss_value)
-            # print(grads)
+                # @partial(jax.jit, static_argnames=['noise_pred_nw'])
+                @eqx.filter_jit
+                def loss(noise_pred_nw, actions, T, observations):
+                    """
+                    observations: (batch, observation_dim * n_observations)
+                    actions: (batch, n_actions, action_dim)
+                    """
 
-            params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
-            updates, opt_state = optim.update(grads, opt_state, params)
-            noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
+                    batch, n_actions, steps = actions.shape
+                    noise_pred = noise_pred_nw(actions, T, observations)
+                    # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
+
+                    loss = jnp.mean(jnp.square(noise - noise_pred))
+
+                    return loss
+
+                    # ret = jnp.square(noise - noise_pred)
+
+
+                    # ret_max = jnp.max(ret)
+                    # print(ret_max)
+                    # return jnp.mean(ret)
+                
+                loss_value, grads = eqx.filter_value_and_grad(loss)(
+                    noise_pred_nw, 
+                    noise_actions, 
+                    timesteps, 
+                    obs,)
+                
+                # i.set_postfix(loss=loss_value)
+
+                # print(loss_value)
+                # print(grads)
+
+                params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
+                updates, opt_state = optim.update(grads, opt_state, params)
+                noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
+                data_iter.set_postfix(loss=loss_value)
         dataloader.shuffle_data()
 
 
 
-        print(f"Epoch: {e+1}, Loss: {loss_value}")
+        # print(f"Epoch: {e+1}, Loss: {loss_value}")
 
 
 def make(*, action_dim, obs_dim):
@@ -179,12 +183,18 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     betas = jnp.array(betas)
 
     noise_scheduler = NoiseScheduler(50, betas)
+    # noise_scheduler = DDPMScheduler(
+    #     num_train_timesteps=50,
+    #     beta_schedule='squaredcos_cap_v2',
+    #     clip_sample=True,
+    #     prediction_type='epsilon'
+    # )
 
 
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
           dataloader=DataLoader(data_path, "data", 512), 
-          epochs=100)
+          epochs=1)
     
     print("Saving model...")
     save("model", {"action_dim": 7, "obs_dim": 128}, noise_pred_nw)
@@ -194,7 +204,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     print("Eval")
 
-    eval_policy(model=noise_pred_nw)
+    eval_policy(model=noise_pred_nw, noise_scheduler=noise_scheduler)
 
 
 
