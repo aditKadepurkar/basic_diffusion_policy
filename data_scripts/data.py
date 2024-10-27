@@ -16,7 +16,7 @@ from diffusion.data_loader import DataLoader
 
 
 
-DATA_FILE = "demonstrations/1729535071_8612459/demo.hdf5"
+DATA_FILE = "demonstrations/demo_norm.hdf5"
 OUT_FILE = "demonstrations/demo.hdf5"
 
 count_total = 0

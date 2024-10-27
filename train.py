@@ -28,7 +28,7 @@ from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
-    lr = optax.cosine_decay_schedule(1e-4, dataloader.get_batch_count() * epochs)
+    lr = optax.cosine_decay_schedule(1e-3, dataloader.get_batch_count() * epochs)
     # alpha = 
     # gamma = 
 
@@ -151,20 +151,12 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     key = jax.random.PRNGKey(0)
 
-    data_path = "demonstrations/1729535071_8612459/demo.hdf5"
+    data_path = "demonstrations/demo_norm.hdf5"
 
     # policy = DiffusionPolicy(key=key, data_path=data_path)
 
     print("Training the policy")
 
-    # policy.train()
-
-    # lr_schedule = optax.schedules.exponential_decay(1e-3, 100, 0.9)
-
-    # train(Policy=policy, lr=lr_schedule, epochs=100)
-
-    # noise_pred_nw = NoisePredictionNetwork(7, 40)
-    # noise_pred_nw = MLP(157, 7*4)
     noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=128, key=key)
     
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
@@ -194,7 +186,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
           dataloader=DataLoader(data_path, "data", 512), 
-          epochs=1)
+          epochs=100)
     
     print("Saving model...")
     save("model", {"action_dim": 7, "obs_dim": 128}, noise_pred_nw)
