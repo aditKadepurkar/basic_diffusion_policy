@@ -10,7 +10,7 @@ from diffusion.diffusion_policy import NoiseScheduler
 def make(*, action_dim, obs_dim):
     return CnnDiffusionPolicy(
         action_dim=action_dim,
-        obs_dim=obs_dim,
+        obs_dim=64,
     )
 
 def load(filename):

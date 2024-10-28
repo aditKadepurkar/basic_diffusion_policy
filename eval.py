@@ -76,7 +76,7 @@ def eval_policy(model, noise_scheduler):
 
     obs = env.sim.get_state().flatten() # 1 step observation
     # extend the obs to 4 steps
-    obs = jnp.tile(obs, 4) # (128,) or something
+    obs = jnp.tile(obs, 2) # (128,) or something
 
     # try forcing the first few observations to see if it follows the expert
     # that would tell us if we just need more data, or something else.

@@ -12,7 +12,7 @@ from robosuite.controllers import load_controller_config
 from robosuite.wrappers import GymWrapper
 
 
-# DATA_FILE = "demonstrations/demo.hdf5"
+DATA_FILE = "demonstrations/1729535071_8612459/demo.hdf5"
 DATA_FILE = "demonstrations/demo_norm.hdf5"
 
 DEMO = "demo_2"

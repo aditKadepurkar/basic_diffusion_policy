@@ -28,20 +28,19 @@ from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
-    lr = optax.cosine_decay_schedule(1e-4, dataloader.get_batch_count() * epochs)
+    lr = optax.cosine_decay_schedule(1e-2, dataloader.get_batch_count() * epochs)
     # alpha = 
     # gamma = 
 
     optim = optax.adamw(learning_rate=lr)
 
     key = jax.random.key(0)
+    params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
+    opt_state = optim.init(params)
+    # step = 0
 
     with tqdm.tqdm(total=epochs, desc="Epoch") as poch:
         for e in range(epochs):
-    # for e in trange(epochs, desc="Epochs"):
-        # max_loss_value = [0]
-            params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
-            opt_state = optim.init(params)
             epoch_loss = 0.0
             # Iterate over batches
             with tqdm.tqdm(dataloader, desc="Batches", total=dataloader.get_batch_count(), leave=False) as data_iter:
@@ -68,7 +67,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                     noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
 
                     # @partial(jax.jit, static_argnames=['noise_pred_nw'])
-                    @eqx.filter_jit
+                    # @eqx.filter_jit
                     def loss(noise_pred_nw, actions, T, observations, noise):
                         """
                         observations: (batch, observation_dim * n_observations)
@@ -106,6 +105,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                     noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
                     epoch_loss += loss_value
                     data_iter.set_postfix(loss=loss_value)
+                    # step += 1
             poch.update(1)
             poch.set_postfix(loss=epoch_loss/dataloader.get_batch_count())
             dataloader.shuffle_data()
@@ -155,13 +155,13 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     key = jax.random.PRNGKey(0)
 
-    data_path = "demonstrations/demo_norm.hdf5"
+    data_path = "demonstrations/1729535071_8612459/demo.hdf5"
 
     # policy = DiffusionPolicy(key=key, data_path=data_path)
 
     print("Training the policy")
 
-    noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=128, key=key)
+    noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=64, key=key)
     
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
     param_count = sum(x.size for x in jax.tree.leaves(params))
