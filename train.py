@@ -28,7 +28,7 @@ from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
-    lr = optax.cosine_decay_schedule(1e-3, dataloader.get_batch_count() * epochs)
+    lr = optax.cosine_decay_schedule(1e-4, dataloader.get_batch_count() * epochs)
     # alpha = 
     # gamma = 
 
@@ -36,75 +36,79 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
     key = jax.random.key(0)
 
-
-    for e in trange(epochs, desc="Epochs"):
+    with tqdm.tqdm(total=epochs, desc="Epoch") as poch:
+        for e in range(epochs):
+    # for e in trange(epochs, desc="Epochs"):
         # max_loss_value = [0]
-        params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
-        opt_state = optim.init(params)
+            params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
+            opt_state = optim.init(params)
+            epoch_loss = 0.0
+            # Iterate over batches
+            with tqdm.tqdm(dataloader, desc="Batches", total=dataloader.get_batch_count(), leave=False) as data_iter:
+                for data in data_iter:
+            # for i, data in zip(trange(dataloader.get_batch_count(), desc="Batches"), dataloader):
+            
+                    obs = data['states']
+                    actions = data['actions']
 
-        # Iterate over batches
-        with tqdm.tqdm(dataloader, desc="Batches") as data_iter:
-            for data in data_iter:
-        # for i, data in zip(trange(dataloader.get_batch_count(), desc="Batches"), dataloader):
-        
-                obs = data['states']
-                actions = data['actions']
-
-                # film layer stuff
-
-
-
-                key, subkey, subkey_2 = jax.random.split(key, 3)
+                    # film layer stuff
 
 
-                # random noise
-                noise = jax.random.normal(subkey, (actions.shape))
 
-                timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
+                    key, subkey, subkey_2 = jax.random.split(key, 3)
 
 
-                # forward diffusion
-                noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
+                    # random noise
+                    noise = jax.random.normal(subkey, (actions.shape))
 
-                # @partial(jax.jit, static_argnames=['noise_pred_nw'])
-                @eqx.filter_jit
-                def loss(noise_pred_nw, actions, T, observations):
-                    """
-                    observations: (batch, observation_dim * n_observations)
-                    actions: (batch, n_actions, action_dim)
-                    """
-
-                    batch, n_actions, steps = actions.shape
-                    noise_pred = noise_pred_nw(actions, T, observations)
-                    # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
-
-                    loss = jnp.mean(jnp.square(noise - noise_pred))
-
-                    return loss
-
-                    # ret = jnp.square(noise - noise_pred)
+                    timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
 
 
-                    # ret_max = jnp.max(ret)
-                    # print(ret_max)
-                    # return jnp.mean(ret)
-                
-                loss_value, grads = eqx.filter_value_and_grad(loss)(
-                    noise_pred_nw, 
-                    noise_actions, 
-                    timesteps, 
-                    obs,)
-                
-                # i.set_postfix(loss=loss_value)
+                    # forward diffusion
+                    noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
 
-                # print(loss_value)
-                # print(grads)
+                    # @partial(jax.jit, static_argnames=['noise_pred_nw'])
+                    @eqx.filter_jit
+                    def loss(noise_pred_nw, actions, T, observations, noise):
+                        """
+                        observations: (batch, observation_dim * n_observations)
+                        actions: (batch, n_actions, action_dim)
+                        """
 
-                params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
-                updates, opt_state = optim.update(grads, opt_state, params)
-                noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
-                data_iter.set_postfix(loss=loss_value)
-        dataloader.shuffle_data()
+                        batch, n_actions, steps = actions.shape
+
+                        # actions = actions.astype(jnp.float16)
+                        noise_pred = noise_pred_nw(actions, T, observations)
+                        # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
+                        # noise = noise.astype(jnp.float16)
+
+                        loss = jnp.mean(jnp.square(noise_pred - noise))
+                        # print(loss)
+                        return loss
+
+                        # ret = jnp.square(noise - noise_pred)
+
+
+                        # ret_max = jnp.max(ret)
+                        # print(ret_max)
+                        # return jnp.mean(ret)
+
+                    
+                    loss_value, grads = eqx.filter_value_and_grad(loss)(
+                        noise_pred_nw, 
+                        noise_actions, 
+                        timesteps, 
+                        obs,
+                        noise)
+
+                    params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
+                    updates, opt_state = optim.update(grads, opt_state, params)
+                    noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
+                    epoch_loss += loss_value
+                    data_iter.set_postfix(loss=loss_value)
+            poch.update(1)
+            poch.set_postfix(loss=epoch_loss/dataloader.get_batch_count())
+            dataloader.shuffle_data()
 
 
 
@@ -172,7 +176,7 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
         t1 = i / 50
         t2 = (i + 1) / 50
         betas.append(min(1 - alpha_bar_fn(t2) / alpha_bar_fn(t1), 0.999))
-    betas = jnp.array(betas)
+    betas = jnp.array(betas, dtype=jnp.float16)
 
     noise_scheduler = NoiseScheduler(50, betas)
     # noise_scheduler = DDPMScheduler(

@@ -34,9 +34,11 @@ class DataLoader():
         with h5py.File(file_path, 'r') as f:
             # print(f[dataset_name].keys())
             for demo in f[dataset_name].keys():
-                self.sizes.append(f[dataset_name][demo]['states'].shape[0] - 8 + self.sizes[-1] if len(self.sizes) > 0 else f[dataset_name][demo]['states'].shape[0] - 8)
-                self._dataset_size += f[dataset_name][demo]['states'].shape[0] -8
+                self.sizes.append(f[dataset_name][demo]['states'].shape[0] - 9 + self.sizes[-1] if len(self.sizes) > 0 else f[dataset_name][demo]['states'].shape[0] - 9)
+                self._dataset_size += f[dataset_name][demo]['states'].shape[0] -9
                 self.sets.append(demo)
+        
+        del f
         
         self.sizes = jnp.array(self.sizes)
         # self.sets = jnp.array(self.sets)
@@ -65,8 +67,8 @@ class DataLoader():
 
                     # concat first state 4 times
                     # data['states'][i]
-                    states.append(jnp.array([data['states'][i]] * 4))
-                    actions.append(data['actions'][i:i+4])
+                    states.append(jnp.array([data['states'][i]] * 2))
+                    actions.append(data['actions'][i:i+8])
                 
                 if idx > 0:
                     i -= self.sizes[idx - 1]
@@ -75,14 +77,16 @@ class DataLoader():
                 demo = self.sets[idx]
 
                 data = f[self.dataset_name][demo]
-            
-                states.append(jnp.ravel(data['states'][i:i+4]))
-                actions.append(data['actions'][i+3:i+7])
+
+                states.append(jnp.ravel(data['states'][i:i+2]))
+                actions.append(data['actions'][i+1:i+9])
 
             # does jnp.array twice so the shape is correct
             # print(states.shape, actions.shape)
-            data = {"states": jnp.array(states), "actions": jnp.array(actions)}
+            data = {"states": jnp.array(states, dtype=jnp.float16), "actions": jnp.array(actions, dtype=jnp.float16)}
             # print(data['states'].shape, data['actions'].shape)
+        del f
+        del states, actions
         return data
 
     def __iter__(self):

@@ -10,6 +10,7 @@ import math
     # def __init__(self, embed_dim):
     #     self.embed_dim = embed_dim
 
+
 def embedding_layer(x, key=None):
     embed_dim = 256
     embed = math.log(10000) / (embed_dim // 2 - 1)
@@ -18,6 +19,5 @@ def embedding_layer(x, key=None):
     embed = jnp.concatenate([jnp.sin(embed), jnp.cos(embed)], axis=-1)
     return embed
 
-@jax.jit
 def mish(x, key=None):
     return jax.nn.mish(x)

@@ -24,7 +24,7 @@ class CnnDiffusionPolicy(eqx.Module):
         del key
 
 
-        dims = [action_dim] + list([7**2, 7**3, 7**4 /2])
+        dims = [action_dim] + list([7**2, 7**3, 1400])
         print(dims)
         kernel_size = 5
         embed_dim = 256
@@ -172,7 +172,7 @@ class ResidualBlock(eqx.Module):
 
         self.out_channels = out_channels
 
-    @eqx.filter_jit
+    # @eqx.filter_jit
     def __call__(self, x, obs, key=None):
 
         out = jax.vmap(self.layers[0])(x)
@@ -225,7 +225,7 @@ class Conv1dBlock(eqx.Module):
             jax.nn.mish,
         ]
 
-    @eqx.filter_jit
+    # @eqx.filter_jit
     def __call__(self, x):
         for layer in self.layers:
             x = layer(x)
