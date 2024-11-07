@@ -4,16 +4,20 @@ on the robot to see if we actually cleaned the data well
 or if we ruined the data
 """
 
+import sys
+import os
+
+sys.path.append(os.getcwd())
+
 import h5py
 import robosuite as suite
 import argparse
-import os
 from robosuite.controllers import load_controller_config
 from robosuite.wrappers import GymWrapper
 
 
-DATA_FILE = "demonstrations/1729535071_8612459/demo.hdf5"
-DATA_FILE = "demonstrations/demo_norm.hdf5"
+DATA_FILE = "demonstrations/1730164061_5083463/demo.hdf5"
+# DATA_FILE = "demonstrations/demo_norm.hdf5"
 
 DEMO = "demo_2"
 

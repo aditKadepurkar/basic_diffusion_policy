@@ -51,6 +51,7 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
     device.start_control()
 
     prev_action = None
+    prev_obs = None
 
     # Loop until we get a reset from the input or the task completes
     while True:
@@ -68,6 +69,11 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         if action is None:
             break
 
+        action[3:6] = np.array([0.0, 0.0, 0.0])
+
+        # print(action)
+
+
         if prev_action is None:
             prev_action = action
 
@@ -78,12 +84,21 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         )
 
         # remove the blankspace from the action, where possible
-        # if (np.linalg.norm(action) < 0.1):
-        #     continue
+        if (np.linalg.norm(action) < 0.1):
+            continue
 
         # print("Action: ", action)
 
         state = env.sim.get_state().flatten()
+
+        # if prev_obs is None:
+        #     prev_obs = state
+        
+        # else:
+        #     if np.all(prev_obs == state):
+        #         print("State is the same")
+
+        # prev_obs = state
 
         # print(state.shape)
 
@@ -91,10 +106,6 @@ def collect_human_trajectory(env, device, arm, env_configuration, save_dir="demo
         camera_obs = env.sim.render(
             width=128, height=128, camera_name="robot0_eye_in_hand"
         )
-
-        states.append(state)
-        actions.append(action)
-        observations.append(camera_obs)
 
         # Run environment step
         env.step(action)
@@ -171,14 +182,39 @@ def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
         for state_file in sorted(glob(state_paths)):
             dic = np.load(state_file, allow_pickle=True)
 
-            print(dic.keys())
+            # print(dic.keys())
 
             env_name = str(dic["env"])
 
-            states.extend(dic["states"])
-            for ai in dic["action_infos"]:
-                actions.append(ai["actions"])
+            # print(dic["states"].shape)
+            # states.extend(dic["states"])
+            # print(dic["action_infos"].shape)
+
+            prev_action = None
+            for i, ai in enumerate(dic["action_infos"]):
+                # print(ai["actions"].shape)
+                action = ai["actions"]
+
+                action = np.concatenate([action[:3], [action[6]]])
+
+                # first action
+                if prev_action is None:
+                    prev_action = action
+                
+                # check if the action is the same as the previous action
+                else:
+                    if (np.linalg.norm(action[:3]) < 0.1 and prev_action[-1] == action[-1]):
+                        continue
+                    print(action)
+                    prev_action = action
+
+                actions.append(action)
+                states.append(dic["states"][i])
             success = success or dic["successful"]
+
+
+        # for a in actions:
+        #     print(a)
 
         if len(states) == 0:
             continue
@@ -189,7 +225,7 @@ def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
             # Delete the last state. This is because when the DataCollector wrapper
             # recorded the states and actions, the states were recorded AFTER playing that action,
             # so we end up with an extra state at the end.
-            del states[-1]
+            # del states[-1]
             assert len(states) == len(actions)
 
             num_eps += 1
@@ -202,6 +238,9 @@ def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
             ep_data_grp.attrs["model_file"] = xml_str
 
             # write datasets for states and actions
+            print(len(states), len(actions))
+            for a in actions:
+                print(a)
             ep_data_grp.create_dataset("states", data=np.array(states))
             ep_data_grp.create_dataset("actions", data=np.array(actions))
         else:
@@ -263,6 +302,7 @@ if __name__ == "__main__":
         render_camera=args.camera,
         ignore_done=True,
         use_camera_obs=True,
+        use_object_obs=True,
         camera_names=["agentview", "robot0_eye_in_hand"],
         camera_heights=128,
         camera_widths=128,
@@ -302,6 +342,7 @@ if __name__ == "__main__":
     i = 0
     print(new_dir)
     while i < 100:
+        print("iteration: ", i + 1)
         collect_human_trajectory(env, device, args.arm, args.config, "demonstrations", i)
         i+=1
         gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

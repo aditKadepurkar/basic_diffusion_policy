@@ -24,11 +24,11 @@ class CnnDiffusionPolicy(eqx.Module):
         del key
 
 
-        dims = [action_dim] + list([7**2, 7**3, 1400])
+        dims = [action_dim] + list([64, 128, 256, 512])
         print(dims)
         kernel_size = 5
         embed_dim = 256
-        n_groups = 7
+        n_groups = 4
 
         encoder = [
                 embedding_layer,
@@ -110,7 +110,9 @@ class CnnDiffusionPolicy(eqx.Module):
 
     @eqx.filter_jit
     def __call__(self, x, timestep, cond):
+        # print(x.shape)
         x = jnp.moveaxis(x, -1, -2)
+        # print(x.shape)
 
         for layer in self.layers[0]:
             timestep = layer(timestep.T)
@@ -174,6 +176,7 @@ class ResidualBlock(eqx.Module):
 
     # @eqx.filter_jit
     def __call__(self, x, obs, key=None):
+        # print(x.shape)
 
         out = jax.vmap(self.layers[0])(x)
 
@@ -217,8 +220,8 @@ class ResidualBlock(eqx.Module):
 
 class Conv1dBlock(eqx.Module):
     layers: list
-    def __init__(self, inp_channels, out_channels, key, kernel_size, n_groups=7):
-
+    def __init__(self, inp_channels, out_channels, key, kernel_size, n_groups=4):
+        # print("inp_channels", inp_channels, "out_channels", out_channels)
         self.layers = [
             eqx.nn.Conv1d(inp_channels, out_channels, kernel_size, padding=kernel_size // 2, key=key, use_bias=False),
             eqx.nn.GroupNorm(n_groups, out_channels),
@@ -228,5 +231,6 @@ class Conv1dBlock(eqx.Module):
     # @eqx.filter_jit
     def __call__(self, x):
         for layer in self.layers:
+            # print(x.shape)
             x = layer(x)
         return x.T

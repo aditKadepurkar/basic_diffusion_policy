@@ -22,8 +22,8 @@ from diffusion.data_loader import DataLoader
 
 
 
-DATA_FILE = "demonstrations/1729535071_8612459/demo.hdf5"
-OUT_FILE = "demonstrations/data_normalize.hdf5"
+DATA_FILE = "demonstrations/1731007425_4282627/demo.hdf5"
+OUT_FILE = "demonstrations/data_norm.hdf5"
 
 # hdf5 files that we are using are in the format:
 # data

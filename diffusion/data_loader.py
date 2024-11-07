@@ -49,6 +49,7 @@ class DataLoader():
         print(f"Expert demos: {len(self.sets)}")
 
         self._indices = np.arange(self._dataset_size)
+        self._indices = jnp.concatenate([self._indices, self._indices, self._indices])
         if self.shuffle:
             self._indices = jax.random.permutation(jax.random.PRNGKey(7), self._indices)
             # np.random.shuffle(self._indices)
@@ -67,8 +68,12 @@ class DataLoader():
 
                     # concat first state 4 times
                     # data['states'][i]
+
+                    data = f[self.dataset_name][self.sets[idx]]
+
                     states.append(jnp.array([data['states'][i]] * 2))
                     actions.append(data['actions'][i:i+8])
+
                 
                 if idx > 0:
                     i -= self.sizes[idx - 1]
@@ -82,7 +87,6 @@ class DataLoader():
                 actions.append(data['actions'][i+1:i+9])
 
             # does jnp.array twice so the shape is correct
-            # print(states.shape, actions.shape)
             data = {"states": jnp.array(states, dtype=jnp.float16), "actions": jnp.array(actions, dtype=jnp.float16)}
             # print(data['states'].shape, data['actions'].shape)
         del f
@@ -94,10 +98,10 @@ class DataLoader():
         return self
 
     def __next__(self):
-        if self._start >= self._dataset_size:
+        if self._start >= len(self._indices):
             raise StopIteration
 
-        end = min(self._start + self.batch_size, self._dataset_size)
+        end = min(self._start + self.batch_size, len(self._indices))
         batch_indices = self._indices[self._start:end]
         self._start = end
 
@@ -113,7 +117,7 @@ class DataLoader():
             # self._indices = self._indices[:int(0.7*len(self._indices))]
             # print(self._indices)
     def get_batch_count(self):
-        return self._dataset_size // self.batch_size
+        return len(self._indices) // self.batch_size
 
 # Usage
 # file_path = "/home/aditkadepurkar/dev/diffusiontest/data/1728922451_627212/demo.hdf5"

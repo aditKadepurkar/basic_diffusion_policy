@@ -47,6 +47,10 @@ class NoiseScheduler:
 
         noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
         return noisy_samples
+
+
+
+
     def step(
         self, noise_pred, t, action
     ):

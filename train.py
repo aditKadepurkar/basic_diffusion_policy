@@ -27,8 +27,23 @@ from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
+    # print(dataloader.get_batch_count())
+    lr = optax.warmup_cosine_decay_schedule(
+        init_value=1e-3,
+        peak_value=1e-3,
+        warmup_steps=500,
+        decay_steps=dataloader.get_batch_count() * epochs,
+    )
 
-    lr = optax.cosine_decay_schedule(1e-2, dataloader.get_batch_count() * epochs)
+    # lr = optax.warmup_exponential_decay_schedule(
+    #     init_value=1e-3,
+    #     peak_value=1e-3,
+    #     warmup_steps=500,
+    #     decay_rate=0.05,
+    #     transition_steps=dataloader.get_batch_count() * epochs,
+    # )
+
+    # lr = 1e-3
     # alpha = 
     # gamma = 
 
@@ -37,7 +52,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
     key = jax.random.key(0)
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
     opt_state = optim.init(params)
-    # step = 0
+    step = 0
 
     with tqdm.tqdm(total=epochs, desc="Epoch") as poch:
         for e in range(epochs):
@@ -58,31 +73,23 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
 
 
                     # random noise
-                    noise = jax.random.normal(subkey, (actions.shape))
+                    noise = jax.random.normal(subkey, (actions.shape)) # (batch, n_actions, action_dim)
 
-                    timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50)
+                    timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50) # (batch,)
+
+                    del subkey, subkey_2
 
 
                     # forward diffusion
-                    noise_actions = jax.vmap(noise_scheduler.add_noise)(actions, noise, timesteps)
+                    noise_actions = noise_scheduler.add_noise(actions, noise, timesteps) # (batch, n_actions, action_dim)
 
-                    # @partial(jax.jit, static_argnames=['noise_pred_nw'])
-                    # @eqx.filter_jit
                     def loss(noise_pred_nw, actions, T, observations, noise):
                         """
                         observations: (batch, observation_dim * n_observations)
                         actions: (batch, n_actions, action_dim)
                         """
-
-                        batch, n_actions, steps = actions.shape
-
-                        # actions = actions.astype(jnp.float16)
                         noise_pred = noise_pred_nw(actions, T, observations)
-                        # noise_pred = jax.vmap(noise_pred_nw)(actions, T, observations)
-                        # noise = noise.astype(jnp.float16)
-
                         loss = jnp.mean(jnp.square(noise_pred - noise))
-                        # print(loss)
                         return loss
 
                         # ret = jnp.square(noise - noise_pred)
@@ -105,10 +112,16 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                     noise_pred_nw = eqx.apply_updates(noise_pred_nw, updates)
                     epoch_loss += loss_value
                     data_iter.set_postfix(loss=loss_value)
-                    # step += 1
+                    step += 1
             poch.update(1)
             poch.set_postfix(loss=epoch_loss/dataloader.get_batch_count())
             dataloader.shuffle_data()
+            # print(f"Epoch: {e+1}, Loss: {epoch_loss/dataloader.get_batch_count()}")
+            # print(f"Learning Rate: {lr(step)}")
+
+            if epoch_loss/dataloader.get_batch_count() < 1e-5:
+                print("Loss is less than 1e-5. Stopping training...")
+                break
 
 
 
@@ -155,14 +168,15 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     key = jax.random.PRNGKey(0)
 
-    data_path = "demonstrations/1729535071_8612459/demo.hdf5"
+    # data_path = "demonstrations/1731007425_4282627/demo.hdf5"
+    data_path = "demonstrations/data_norm.hdf5" # this is the normalized version of the above data
 
     # policy = DiffusionPolicy(key=key, data_path=data_path)
 
     print("Training the policy")
 
-    noise_pred_nw = CnnDiffusionPolicy(action_dim=7, obs_dim=64, key=key)
-    
+    noise_pred_nw = CnnDiffusionPolicy(action_dim=4, obs_dim=64, key=key)
+
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
     param_count = sum(x.size for x in jax.tree.leaves(params))
     print(f"Number of Parameters: {param_count:e}")
@@ -189,11 +203,11 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     train(noise_pred_nw=noise_pred_nw, 
           noise_scheduler=noise_scheduler, 
-          dataloader=DataLoader(data_path, "data", 512), 
-          epochs=100)
+          dataloader=DataLoader(data_path, "data", 128), 
+          epochs=500)
     
     print("Saving model...")
-    save("model", {"action_dim": 7, "obs_dim": 128}, noise_pred_nw)
+    save("model", {"action_dim": 4, "obs_dim": 128}, noise_pred_nw)
     print("Model saved!")
     
     input("Press Enter to continue to Final Evaluation...")
@@ -203,6 +217,8 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
     eval_policy(model=noise_pred_nw, noise_scheduler=noise_scheduler)
 
 
+device = jax.devices("gpu")[1]
+jax._src.config.update("jax_default_device", device)
 
 
 train_diffusion_policy("demonstrations.hdf5", "output_dir", "config.json")

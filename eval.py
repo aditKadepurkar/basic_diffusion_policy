@@ -116,20 +116,25 @@ def eval_policy(model, noise_scheduler):
         action = action[0]
 
         # Take the action in the environment
-        env.step(action[0])
+        env_obs, reward, finished, info = env.step(action[0])
+
+        print(env_obs.keys())
+        
+        print("exiting, delete this line")
+        exit(0)
 
         env.render()
 
-        obs1 = env.sim.get_state().flatten()
+        # obs1 = env.sim.get_state().flatten()
 
 
 
-        obs = obs[:, 32:]
-        obs = jnp.concatenate([obs, obs1[None, :]], axis=-1)
+        # obs = obs[:, 32:]
+        # obs = jnp.concatenate([obs, obs1[None, :]], axis=-1)
 
-        env.step(action[1])
+        # env.step(action[1])
 
-        env.render()
+        # env.render()
 
 
 
