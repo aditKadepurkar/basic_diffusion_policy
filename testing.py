@@ -1,45 +1,14 @@
 import robosuite as suite
 from robosuite.controllers import load_controller_config
 import numpy as np
-from diffusion.cnn_policy_network import CnnDiffusionPolicy
+from diffusion.cnn_policy_network import get_vision_encoder
+import jax
 
-# Create a Robosuite environment with a UR5e robot for object reorientation
-def create_reorientation_env():
-    controller_config = load_controller_config(default_controller="OSC_POSE")
+resnet = get_vision_encoder()
 
-    env = suite.make(
-        "Lift",
-        robots="UR5e",
-        has_renderer=True,
-        has_offscreen_renderer=False,
-        use_camera_obs=False,
-        control_freq=20,
-        controller_configs=controller_config,
-        use_object_obs=True,
-        reward_shaping=True 
-    )
-    return env
+x = np.zeros((3, 64, 64))
 
+print(x.shape)
+out = resnet(x=x, key=jax.random.PRNGKey(0))
+print(out.shape)
 
-def main():
-
-    env = create_reorientation_env()
-
-    obs = env.reset()
-
-    for _ in range(500):
-        action = np.random.randn(env.robots[0].dof)
-
-        obs, reward, done, info = env.step(action)
-        
-        env.render()
-
-        print(f"Observation: {obs}, Reward: {reward}")
-
-        if done:
-            break
-
-    env.close()
-
-if __name__ == "__main__":
-    main()

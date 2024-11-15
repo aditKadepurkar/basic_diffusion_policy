@@ -13,6 +13,7 @@ import jax
 from PIL import Image
 import numpy as np
 from diffusion.data_loader import DataLoader
+from diffusion.data_loader_new import DataLoaderNew
 import optax
 from eval import eval_policy
 from diffusion.mlp_model import MLP
@@ -23,24 +24,30 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusion.cnn_policy_network import CnnDiffusionPolicy
 
 
+def add_noise(x_start, t, beta_schedule, key):
+    noise = jax.random.normal(key, shape=x_start.shape)
 
+    alpha_cumprod = jnp.cumprod(1.0 - beta_schedule)
+    sqrt_alpha_cumprod_t = jnp.sqrt(alpha_cumprod[t])
+    sqrt_one_minus_alpha_cumprod_t = jnp.sqrt(1.0 - alpha_cumprod[t])
+    
+    return sqrt_alpha_cumprod_t * x_start + sqrt_one_minus_alpha_cumprod_t * noise
 
 
 def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
     # print(dataloader.get_batch_count())
     lr = optax.warmup_cosine_decay_schedule(
-        init_value=1e-3,
-        peak_value=1e-3,
+        init_value=1e-5,
+        peak_value=1e-4,
         warmup_steps=500,
         decay_steps=dataloader.get_batch_count() * epochs,
     )
 
-    # lr = optax.warmup_exponential_decay_schedule(
+    # lr = optax.linear_schedule(
     #     init_value=1e-3,
-    #     peak_value=1e-3,
-    #     warmup_steps=500,
-    #     decay_rate=0.05,
+    #     end_value=1e-10,
     #     transition_steps=dataloader.get_batch_count() * epochs,
+    #     transition_begin=1000
     # )
 
     # lr = 1e-3
@@ -75,7 +82,7 @@ def train(noise_pred_nw, noise_scheduler, dataloader, epochs):
                     # random noise
                     noise = jax.random.normal(subkey, (actions.shape)) # (batch, n_actions, action_dim)
 
-                    timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 50) # (batch,)
+                    timesteps = jax.random.randint(subkey_2, (actions.shape[0],), 0, 100) # (batch,)
 
                     del subkey, subkey_2
 
@@ -168,31 +175,23 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
     key = jax.random.PRNGKey(0)
 
-    # data_path = "demonstrations/1731007425_4282627/demo.hdf5"
-    data_path = "demonstrations/data_norm.hdf5" # this is the normalized version of the above data
+    data_path = "demonstrations/1731007425_4282627/demo.hdf5"
+    # data_path = "demonstrations/data_norm.hdf5" # this is the normalized version of the above data
 
     # policy = DiffusionPolicy(key=key, data_path=data_path)
 
     print("Training the policy")
 
-    noise_pred_nw = CnnDiffusionPolicy(action_dim=4, obs_dim=64, key=key)
+    noise_pred_nw = CnnDiffusionPolicy(action_dim=8, obs_dim=18432, key=key)
 
     params = eqx.filter(noise_pred_nw, eqx.is_inexact_array)
     param_count = sum(x.size for x in jax.tree.leaves(params))
     print(f"Number of Parameters: {param_count:e}")
 
 
-    def alpha_bar_fn(t):
-        return jnp.cos((t + 0.008) / 1.008 * jnp.pi / 2) ** 2
+    betas = jnp.linspace(0.0001, 0.02, 100)
 
-    betas = []
-    for i in range(50):
-        t1 = i / 50
-        t2 = (i + 1) / 50
-        betas.append(min(1 - alpha_bar_fn(t2) / alpha_bar_fn(t1), 0.999))
-    betas = jnp.array(betas, dtype=jnp.float16)
-
-    noise_scheduler = NoiseScheduler(50, betas)
+    noise_scheduler = NoiseScheduler(100, betas)
     # noise_scheduler = DDPMScheduler(
     #     num_train_timesteps=50,
     #     beta_schedule='squaredcos_cap_v2',
@@ -202,9 +201,10 @@ def train_diffusion_policy(demonstrations_path, output_dir, config_path):
 
 
     train(noise_pred_nw=noise_pred_nw, 
-          noise_scheduler=noise_scheduler, 
-          dataloader=DataLoader(data_path, "data", 128), 
-          epochs=500)
+        noise_scheduler=noise_scheduler, 
+        dataloader=DataLoaderNew(batch_size=10),
+        # dataloader=DataLoader(data_path, "data", 128), 
+        epochs=500)
     
     print("Saving model...")
     save("model", {"action_dim": 4, "obs_dim": 128}, noise_pred_nw)

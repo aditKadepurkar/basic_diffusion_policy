@@ -2,7 +2,7 @@
 import h5py
 import numpy as np
 
-DATA_FILE = "demonstrations/1731006624_0444188/demo.hdf5"
+DATA_FILE = "demonstrations/1731007425_4282627/demo.hdf5"
 
 with h5py.File(DATA_FILE, "r") as fin:
     data = fin['data']
@@ -17,10 +17,12 @@ with h5py.File(DATA_FILE, "r") as fin:
             action = actions[i]
             state = states[i]
 
-            if np.linalg.norm(action[:len(prev_action)-1]) < 0.1 and prev_action[-1] == action[-1]:
-                print(prev_action)
-                print(action)
-                print("no action")
+            print(action)
+
+            # if np.linalg.norm(action[:len(prev_action)-1]) < 0.1 and prev_action[-1] == action[-1]:
+            #     print(prev_action)
+            #     print(action)
+            #     print("no action")
             
             prev_action = action
 

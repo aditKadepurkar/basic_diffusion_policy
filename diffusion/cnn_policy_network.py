@@ -14,6 +14,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 from diffusion.embedding_layer import embedding_layer, mish
+from eqxvision.models import resnet18
 
 class CnnDiffusionPolicy(eqx.Module):
     layers: list
@@ -24,7 +25,7 @@ class CnnDiffusionPolicy(eqx.Module):
         del key
 
 
-        dims = [action_dim] + list([64, 128, 256, 512])
+        dims = [action_dim] + list([256, 512])
         print(dims)
         kernel_size = 5
         embed_dim = 256
@@ -234,3 +235,17 @@ class Conv1dBlock(eqx.Module):
             # print(x.shape)
             x = layer(x)
         return x.T
+
+def get_vision_encoder():
+    """
+    Returns a Resnet-18 vision encoder model
+    """
+    model = resnet18()
+
+    # change all the batchnorm layers to groupnorm
+    # for name, module in model.layers:
+    #     print(module.__class__)
+        # if isinstance(module, eqx.nn.BatchNorm2d):
+        #     setattr(model, name, eqx.nn.GroupNorm(4, module.num_features))
+
+    return model

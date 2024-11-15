@@ -20,10 +20,12 @@ def cosine_schedule(t, start = 0, end = 1, tau = 1, clip_min = 1e-9):
 
 
 class NoiseScheduler:
+
     def __init__(self, T, beta_schedule):
         self.betas = beta_schedule
         self.alphas = 1.0 - self.betas
         self.alphas_cumprod = jnp.cumprod(self.alphas, axis=0)
+        assert len(self.betas) == T
 
     def add_noise(
         self,
@@ -37,6 +39,8 @@ class NoiseScheduler:
 
         sqrt_alpha_prod = alphas_cumprod[timesteps] ** 0.5
         sqrt_alpha_prod = sqrt_alpha_prod.flatten()
+
+
         while len(sqrt_alpha_prod.shape) < len(original_samples.shape):
             sqrt_alpha_prod = jnp.expand_dims(sqrt_alpha_prod, -1)
 
